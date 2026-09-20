@@ -17,10 +17,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from clipbot import __version__                                        # noqa: E402
-from clipbot.config import PRODUCT                                     # noqa: E402
+PRODUCT = "BURN-IN"          # kept in step with clipbot/config.py by the brand test
 
 OUT = ROOT / "docs" / "sideload.json"
 ALIAS = ROOT / "docs" / "altstore.json"   # same feed, the name older tools expect
@@ -31,11 +28,16 @@ TINT = "DDE1E7"
 MIN_IOS = "15.1"
 
 
+def app_version() -> str:
+    """Whatever the phone app is stamped with right now."""
+    return json.loads((ROOT / "phone" / "app.json").read_text(encoding="utf-8"))["expo"]["version"]
+
+
 def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
     # tags look like "phone-v1.0.5"; sideloaders compare plain numbers, so hand them just that
     version = tag.split("-v")[-1].lstrip("vV") if tag else __version__
     if not version[:1].isdigit():
-        version = __version__
+        version = app_version()
     return {
         "name": f"{PRODUCT} Remote",
         "identifier": "os.spike.burnin",
