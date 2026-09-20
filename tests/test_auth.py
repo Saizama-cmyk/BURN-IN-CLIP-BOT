@@ -67,3 +67,16 @@ def test_secrets_encrypted_on_disk(isolated_home):
     C.save_tokens(isolated_home / "tokens.json", {"youtube": {"access_token": "tok-xyz"}})
     assert "tok-xyz" not in (isolated_home / "tokens.json").read_text()
     assert C.load_tokens(isolated_home / "tokens.json")["youtube"]["access_token"] == "tok-xyz"
+
+
+def test_two_profiles_cannot_share_a_password():
+    """Names and passwords are both unique, so no two accounts can share a login."""
+    store = ProfileStore()
+    store.create("Sam", "chrome-hearts-1", 8)
+    with pytest.raises(AuthError) as first:
+        store.create("Alex", "chrome-hearts-1", 8)
+    assert "another profile" in str(first.value)
+    with pytest.raises(AuthError):
+        store.create("Sam", "something-else-9", 8)     # the name is taken too
+    store.create("Alex", "something-else-9", 8)        # its own name and password: fine
+    assert len(store.profiles()) == 2

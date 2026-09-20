@@ -54,6 +54,21 @@ class Session:
     last_seen: float
 
 
+def password_matches(password: str, prof: dict) -> bool:
+    """Does this password open that profile? (Used to keep every login unique.)"""
+    got = hash_password(password, bytes.fromhex(prof["salt"]), int(prof["iterations"]))
+    return hmac.compare_digest(prof["hash"], got)
+
+
+def _password_taken(password: str, profiles: list[dict]) -> bool:
+    """True when another profile already uses this password.
+
+    Names and passwords both have to be unique, so two accounts on one PC can never share a
+    login. Each profile has its own salt, so this is checked by hashing the candidate against
+    every stored salt rather than by comparing hashes."""
+    return any(password_matches(password, p) for p in profiles)
+
+
 class ProfileStore:
     """profiles.json + sessions.json, safe to use from several threads."""
 
@@ -104,6 +119,9 @@ class ProfileStore:
             data = self._read()
             if any(p["name"].lower() == name.lower() for p in data["profiles"]):
                 raise AuthError("A profile with that name already exists")
+            if _password_taken(password, data["profiles"]):
+                raise AuthError("That password already belongs to another profile. Every account "
+                                "needs its own name and its own password.")
             pid = secrets.token_hex(PROFILE_ID_BYTES)
             salt = secrets.token_bytes(SALT_BYTES)
             first = not data["profiles"]
@@ -152,6 +170,9 @@ class ProfileStore:
             raise AuthError(f"Password must be at least {min_len} characters")
         if not self.verify(profile_id, old, max_attempts, lockout_s):
             raise AuthError("Current password is wrong")
+        others = [p for p in self._read()["profiles"] if p["id"] != profile_id]
+        if _password_taken(new, others):
+            raise AuthError("That password already belongs to another profile.")
         salt = secrets.token_bytes(SALT_BYTES)
         with self._lock:
             data = self._read()

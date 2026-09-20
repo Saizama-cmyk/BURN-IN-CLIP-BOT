@@ -103,14 +103,33 @@ function SignIn({ onDone }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [profiles, setProfiles] = useState([]);
+  const [profileId, setProfileId] = useState("");
+
   useEffect(() => { SecureStore.getItemAsync(KEY_HOST).then(v => v && setHost(v)); }, []);
+
+  // ask the PC which accounts exist, so you sign in as a specific one (names are unique there)
+  const lookUp = useCallback(async (raw) => {
+    const clean = (raw || "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    if (!clean.includes(".")) return;
+    try {
+      const r = await call(clean, "/api/auth/status");
+      if (r.ok) {
+        setProfiles(r.data.profiles || []);
+        setProfileId(prev => prev || r.data.active || (r.data.profiles || [])[0]?.id || "");
+        setError("");
+      }
+    } catch (e) { /* typed halfway, or the PC is asleep: the Connect button will say so */ }
+  }, []);
 
   const go = async () => {
     const clean = host.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
     if (!clean) return setError("Type the address shown in BURN-IN on your PC.");
     setBusy(true); setError("");
     try {
-      const r = await call(clean, "/api/auth/login", { method: "POST", body: { password } });
+      const r = await call(clean, "/api/auth/login", {
+        method: "POST", body: profileId ? { password, profile_id: profileId } : { password },
+      });
       if (!r.ok || !r.data.token) {
         setError(r.data.error || (r.status === 401 ? "Wrong password." : `Sign-in failed (${r.status}).`));
       } else {
@@ -132,10 +151,26 @@ function SignIn({ onDone }) {
       <Plate style={{ width: "100%", marginTop: 22 }}>
         <Text style={s.label}>PC address</Text>
         <TextInput
-          value={host} onChangeText={setHost} placeholder="192.168.0.72:8787"
+          value={host} onChangeText={setHost} onBlur={() => lookUp(host)}
+          placeholder="192.168.0.72:8787"
           placeholderTextColor={C.faint} autoCapitalize="none" autoCorrect={false}
           keyboardType="numbers-and-punctuation" style={s.input}
         />
+        {profiles.length > 0 && (
+          <>
+            <Text style={[s.label, { marginTop: 14 }]}>Account</Text>
+            <View style={s.accounts}>
+              {profiles.map(p => (
+                <Pressable key={p.id} onPress={() => setProfileId(p.id)}
+                  style={[s.account, profileId === p.id && s.accountOn]}>
+                  <Text style={[s.accountText, profileId === p.id && { color: C.text }]}>
+                    {p.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        )}
         <Text style={[s.label, { marginTop: 14 }]}>Profile password</Text>
         <TextInput
           value={password} onChangeText={setPassword} secureTextEntry
@@ -438,4 +473,9 @@ const s = StyleSheet.create({
     backgroundColor: C.plate2, color: C.text, fontSize: 16, borderWidth: 1, borderColor: C.line },
   error: { color: "#FFC9C8", fontSize: 13, marginTop: 12 },
   hint: { color: C.faint, fontSize: 12, marginTop: 14, lineHeight: 18 },
+  accounts: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  account: { minHeight: 40, paddingHorizontal: 14, justifyContent: "center", borderRadius: 8,
+    backgroundColor: C.plate2, borderWidth: 1, borderColor: C.line },
+  accountOn: { borderColor: C.chrome, backgroundColor: C.plate3 },
+  accountText: { ...HEAD, color: C.muted, fontSize: 11 },
 });
