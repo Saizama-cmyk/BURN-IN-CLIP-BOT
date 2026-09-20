@@ -17,3 +17,12 @@ phone/node_modules/
 phone/ios/
 phone/android/
 phone/.expo/
+
+# never publish secrets, even if one appears later
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+tokens.json
+release_config.local.json
