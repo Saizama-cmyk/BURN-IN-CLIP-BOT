@@ -101,8 +101,12 @@ def legal_copies() -> None:
         (dst / name).write_bytes((ROOT / name).read_bytes())
 
 
+DEFAULT_REPO = "Saizama-cmyk/BURN-IN-CLIP-BOT"   # where builds are published; CLIPBOT_REPO wins
+
+
 def release_config() -> None:
-    repo = os.environ.get("CLIPBOT_REPO", "").strip()
+    """Bake the update source into the build, so a fresh install updates itself with no setup."""
+    repo = (os.environ.get("CLIPBOT_REPO", "").strip() or DEFAULT_REPO)
     if repo:
         error = _source_error(repo, "BURN-IN-Setup.exe")
         if error:

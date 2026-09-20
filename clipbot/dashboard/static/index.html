@@ -67,6 +67,40 @@ h2{font:600 15px/1.2 var(--head);letter-spacing:.1em;text-transform:uppercase;ma
 .dim{color:var(--muted)} .small{font-size:12.5px}
 .ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 
+/* ---------------------------------------------------------------- chrome hearts, the house style
+   Sterling hardware on black leather: everything reads as a machined silver part bolted to a
+   dark hide. Three moves carry it - an engraved rim on every plate, a hairline chrome divider
+   with a centre mark, and studs at the corners of the things that matter. Nothing glows except
+   the ON AIR lamp. */
+.plate-rule{position:relative;height:1px;margin:18px 0;background:linear-gradient(90deg,transparent,rgba(226,231,240,.22),transparent)}
+.plate-rule::after{content:"";position:absolute;left:50%;top:-3px;width:7px;height:7px;transform:translateX(-50%) rotate(45deg);
+  background:linear-gradient(135deg,#FFFFFF,#8A9099);box-shadow:0 0 0 1px rgba(0,0,0,.6)}
+/* corner studs: four little domed rivets, drawn with gradients so they catch the light */
+.panel{--stud:radial-gradient(circle at 35% 30%,#FFFFFF,#C9CED6 38%,#6E737C 60%,#2A2C31 100%)}
+.panel::after{content:"";position:absolute;inset:8px;border-radius:calc(var(--r) - 6px);pointer-events:none;
+  background:
+    var(--stud) left 0 top 0/7px 7px no-repeat,
+    var(--stud) right 0 top 0/7px 7px no-repeat,
+    var(--stud) left 0 bottom 0/7px 7px no-repeat,
+    var(--stud) right 0 bottom 0/7px 7px no-repeat;
+  opacity:.5}
+.panel:hover::after{opacity:.85}
+/* the rail wears the mark like a pendant */
+.brand img{filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(255,255,255,.35))}
+/* leather: a fine pebbled grain under the plates, not a photo */
+.panel,fieldset{background-image:
+  radial-gradient(circle at 20% 30%,rgba(255,255,255,.016) 0 1px,transparent 1px),
+  radial-gradient(circle at 70% 60%,rgba(255,255,255,.012) 0 1px,transparent 1px);
+  background-size:7px 7px,11px 11px}
+/* engraved headers: the label is cut into the metal, so it has a dark top edge and a light one below */
+.phead h2,.panel>header h2,.topbar h1{text-shadow:0 -1px 0 rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.12)}
+.label,.lab{text-shadow:0 -1px 0 rgba(0,0,0,.7)}
+/* buttons get a milled edge */
+.btn{border-radius:7px}
+.btn::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 2px 0 -1px rgba(255,255,255,.12)}
+.btn.primary::after{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+
 /* ---------------------------------------------------------------- sterling hardware */
 /* Polished chrome is a gradient plus a moving specular: the highlight travels, so the surface
    reads as metal instead of a painted stripe. One sweep on the wordmark, one on a hovered
@@ -131,7 +165,7 @@ nav .count{margin-left:auto;min-width:20px;padding:2px 6px;border-radius:2px;bac
 .tally.running i::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--volt);animation:ring 2s var(--ease) infinite}
 @keyframes ring{from{transform:scale(.6);opacity:.8}to{transform:scale(2);opacity:0}}
 .tally.paused{color:var(--molten-2)} .tally.paused i{background:var(--molten)}
-.tally.failsafe{color:var(--reject)} .tally.failsafe i{background:var(--reject);box-shadow:0 0 12px var(--reject)}
+.tally.failsafe{color:var(--muted)} .tally.failsafe i{background:var(--muted);box-shadow:none}
 .meter .track{position:relative;height:6px;background:#050506;border-radius:2px;margin-top:7px;overflow:hidden;
   box-shadow:inset 0 1px 2px rgba(0,0,0,.8),0 0 0 1px var(--line)}
 .meter .fill{position:absolute;inset:0;border-radius:1px;background:linear-gradient(90deg,#7A8697,#D7DCE4);
@@ -1132,19 +1166,25 @@ function renderHeader(s) {
   rb.classList.toggle("show", s.restart_pending.length > 0);
   $("#restartList").textContent = s.restart_pending.join(", ");
 }
+let pollFails = 0;
+const CONN_FAILS = 3;
 async function poll() {
   clearTimeout(pollTimer);
   if (document.hidden || $("#lock").classList.contains("show")) { pollTimer = setTimeout(poll, refreshMs); return; }
   try {
     const r = await api("/api/state");
+    if (r.status === 401) { showLock(); pollTimer = setTimeout(poll, refreshMs); return; }
     if (!r.ok) throw new Error(r.status);
     state = r.body;
+    pollFails = 0;
     $("#connBanner").classList.remove("show");
     renderHeader(state); phoneChip(state);
     if ($("#view-live").classList.contains("active")) { renderMonitors(state); renderFlow(state); renderSamples(state); renderPosts(state); }
     refreshMs = state.refresh_ms || refreshMs;
   } catch (e) {
-    $("#connBanner").classList.add("show");
+    // one dropped poll means nothing (the engine restarts, Windows sleeps a thread); say so only
+    // when it keeps failing, and take it back the moment anything answers
+    if (++pollFails >= CONN_FAILS) $("#connBanner").classList.add("show");
   }
   pollTimer = setTimeout(poll, refreshMs);
 }

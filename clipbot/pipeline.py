@@ -92,6 +92,9 @@ class Pipeline:
         self.targets: dict[str, StreamTarget] = {}
         self.manual_paused = False
         self.failsafe_paused = False
+        self._failsafe_since = 0.0
+        self._relief_at = 0.0
+        self.slot_relief = 0          # streams temporarily given up while catching up
         self.disk_paused = False
         self.captures_paused = False
         self.spikes_ignored = 0
@@ -217,17 +220,43 @@ class Pipeline:
         return self.manual_paused or self.failsafe_paused or self.disk_paused
 
     def _update_failsafe(self, pressure: float) -> bool:
-        """Hysteresis: engage at ≥ pause_at, release at ≤ resume_at. Returns the state."""
+        """Hysteresis: engage at ≥ pause_at, release at ≤ resume_at. Returns the state.
+
+        A PC that is simply watching more streams than it can judge would otherwise sit in the
+        failsafe for hours, which is noise, not information. So when the failsafe has been on for
+        ``backlog.relief_after_s`` we drop a few streams and keep dropping until it drains, then
+        hand the slots back one step at a time."""
         b = self.settings.backlog
+        now = time.monotonic()
         if not self.failsafe_paused and pressure >= b.pause_at:
             self.failsafe_paused = True
+            self._failsafe_since = now
             logger.warning("backlog failsafe ON: pressure %.2f ≥ %.2f — captures paused",
                            pressure, b.pause_at)
         elif self.failsafe_paused and pressure <= b.resume_at:
             self.failsafe_paused = False
+            self._failsafe_since = 0.0
             logger.info("backlog failsafe OFF: pressure %.2f ≤ %.2f — captures resume",
                         pressure, b.resume_at)
+        self._update_relief(now, pressure)
         return self.failsafe_paused
+
+    def _update_relief(self, now: float, pressure: float) -> None:
+        """Watch fewer streams while behind; give the slots back once caught up."""
+        b = self.settings.backlog
+        if not b.relief:
+            self.slot_relief = 0
+            return
+        stuck = self.failsafe_paused and self._failsafe_since and \
+            now - self._failsafe_since >= b.relief_after_s
+        if stuck and now - self._relief_at >= b.relief_after_s:
+            self._relief_at = now
+            self.slot_relief += b.relief_step
+            logger.info("catching up: watching %d fewer streams for now", self.slot_relief)
+        elif not self.failsafe_paused and self.slot_relief and pressure <= b.resume_at / 2:
+            self._relief_at = now
+            self.slot_relief = max(0, self.slot_relief - b.relief_step)
+            logger.info("caught up: giving %d streams back", b.relief_step)
 
     async def _refresh_failsafe(self) -> None:
         self._update_failsafe(self.pressure)
@@ -263,6 +292,9 @@ class Pipeline:
                 self.discovery.boosted = {p: self.analytics.boosted_streamers(p)
                                           for p in ("twitch", "kick")}
                 targets = await self.discovery.refresh()
+                if self.slot_relief:      # behind: watch the strongest few, not everything
+                    keep = max(self.settings.backlog.relief_floor, len(targets) - self.slot_relief)
+                    targets = targets[:keep]
                 await self._set_targets(targets)
             except asyncio.CancelledError:
                 raise

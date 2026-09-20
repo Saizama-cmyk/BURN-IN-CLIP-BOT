@@ -701,6 +701,15 @@ class ClipImportCfg(Section):
 class BacklogCfg(Section):
     """Failsafe that pauses capture when the pipeline falls behind."""
     capacity: int = F(100, "Capacity", "In-flight items that count as 100 % pressure.", ge=5, le=10000)
+    relief: bool = F(True, "Watch fewer streams when behind", "If the queue stays full, BURN-IN "
+                     "quietly watches fewer streams until it catches up, then goes back to normal. "
+                     "Without this the failsafe can sit on screen for hours.")
+    relief_after_s: float = F(180.0, "Back off after (s)", "How long the queue has to stay full "
+                              "before it starts watching fewer streams.", ge=30, le=3600)
+    relief_step: int = F(3, "Streams dropped each time", "How many streams to drop per step while "
+                         "catching up.", ge=1, le=20)
+    relief_floor: int = F(4, "Never go below", "Streams it keeps watching no matter how far "
+                          "behind it is.", ge=1, le=50)
     pause_at: float = F(0.8, "Pause at", "Pressure at which all captures pause and spikes are ignored.",
                         gt=0, le=1.0)
     resume_at: float = F(0.5, "Resume at", "Pressure at which captures resume (must be below Pause at).",

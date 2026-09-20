@@ -7,11 +7,12 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StatusBar, StyleSheet,
-  Text, TextInput, View,
+  ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, StatusBar,
+  StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import Constants from "expo-constants";
 
 /* ------------------------------------------------------------------ the look: sterling on black */
 const C = {
@@ -22,7 +23,16 @@ const C = {
 };
 const HEAD = { fontWeight: "700", letterSpacing: 1.6, textTransform: "uppercase" };
 const KEY_HOST = "burnin.host", KEY_TOKEN = "burnin.token";
-const POLL_MS = 2500, TIMEOUT_MS = 6000, CLIP_LIMIT = 30, MON_LIMIT = 12;
+const POLL_MS = 2500, TIMEOUT_MS = 6000, CLIP_LIMIT = 30, MON_LIMIT = 12, DEFAULT_PORT = 8787;
+const RELEASE_API = "https://api.github.com/repos/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tags/phone-latest";
+const RELEASE_PAGE = "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tag/phone-latest";
+
+/** "http://192.168.0.72/" and "192.168.0.72" both mean 192.168.0.72:8787. */
+function cleanHost(raw) {
+  const bare = String(raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+  if (!bare) return "";
+  return bare.includes(":") ? bare : `${bare}:${DEFAULT_PORT}`;
+}
 
 /* ------------------------------------------------------------------ api */
 async function call(host, path, { token, method = "GET", body } = {}) {
@@ -56,7 +66,12 @@ function Lamp({ state }) {
 }
 
 function Plate({ children, style }) {
-  return <View style={[s.plate, style]}>{children}</View>;
+  return (
+    <View style={[s.plate, style]}>
+      <View style={s.plateEdge} />
+      {children}
+    </View>
+  );
 }
 
 function Btn({ label, onPress, kind = "normal", busy, disabled }) {
@@ -159,7 +174,7 @@ function SignIn({ onDone }) {
 
   // ask the PC which accounts exist, so you sign in as a specific one (names are unique there)
   const lookUp = useCallback(async (raw) => {
-    const clean = (raw || "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const clean = cleanHost(raw);
     if (!clean.includes(".")) return;
     try {
       const r = await call(clean, "/api/auth/status");
@@ -172,7 +187,7 @@ function SignIn({ onDone }) {
   }, []);
 
   const go = async () => {
-    const clean = host.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+    const clean = cleanHost(host);
     if (!clean) return setError("Type the address shown in BURN-IN on your PC.");
     setBusy(true); setError("");
     try {
@@ -187,7 +202,9 @@ function SignIn({ onDone }) {
         onDone(clean, r.data.token);
       }
     } catch (e) {
-      setError("Cannot reach that address. Same Wi-Fi as the PC, and BURN-IN running with Phone remote on.");
+      setError(`No answer from ${clean}. Check: BURN-IN is running on the PC, `
+        + "Settings - Dashboard - Phone remote is on, and this phone is on the same Wi-Fi "
+        + "(or both are signed into Tailscale).");
     }
     setBusy(false);
   };
@@ -370,6 +387,26 @@ function Log({ host, token, state, onError }) {
   );
 }
 
+/* ------------------------------------------------------------------ self-update
+   The same releases the sideloaders read. AltStore installs updates itself once its source is
+   added; this banner is for everyone else (and for Android, where you tap and install). */
+function useUpdate(current) {
+  const [latest, setLatest] = useState("");
+  useEffect(() => {
+    let alive = true;
+    fetch(RELEASE_API)
+      .then(r => r.json())
+      .then(d => {
+        const tag = String(d.tag_name || d.name || "");
+        const found = (tag.match(/\d+\.\d+\.\d+/) || [])[0] || "";
+        if (alive && found && found !== current) setLatest(found);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [current]);
+  return latest;
+}
+
 /* ------------------------------------------------------------------ shell */
 export default function App() {
   const [host, setHost] = useState(null);
@@ -381,6 +418,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const timer = useRef(null);
+  const update = useUpdate(Constants.expoConfig?.version || "");
 
   useEffect(() => {
     (async () => {
@@ -448,6 +486,11 @@ export default function App() {
           <Pressable onPress={signOut} hitSlop={10}><Text style={s.label}>Sign out</Text></Pressable>
         </View>
 
+        {!!update && (
+          <Pressable onPress={() => Linking.openURL(RELEASE_PAGE)} style={s.update}>
+            <Text style={s.updateText}>Version {update} is out - tap to get it</Text>
+          </Pressable>
+        )}
         {offline && (
           <View style={s.offline}>
             <Text style={s.offlineText}>Cannot reach the PC — same Wi-Fi, BURN-IN running?</Text>
@@ -483,7 +526,11 @@ const s = StyleSheet.create({
   headerMark: { width: 30, height: 30, resizeMode: "contain" },
   headerTitle: { ...HEAD, color: C.chrome, fontSize: 19 },
   plate: { backgroundColor: C.plate, borderRadius: 12, padding: 14, marginBottom: 12,
-    borderWidth: 1, borderColor: C.line },
+    borderWidth: 1, borderColor: C.line,
+    shadowColor: "#000", shadowOpacity: 0.55, shadowRadius: 14, shadowOffset: { width: 0, height: 8 },
+    elevation: 4 },
+  plateEdge: { position: "absolute", left: 0, right: 0, top: 0, height: 1,
+    backgroundColor: "rgba(255,255,255,0.07)" },
   row: { flexDirection: "row", alignItems: "center", gap: 10 },
   divider: { borderTopWidth: 1, borderTopColor: C.line },
   lamp: { width: 10, height: 10, borderRadius: 5 },
@@ -495,7 +542,8 @@ const s = StyleSheet.create({
   statLabel: { ...HEAD, color: C.faint, fontSize: 9.5, marginTop: 2 },
   btn: { minHeight: 48, borderRadius: 10, backgroundColor: C.plate3, alignItems: "center",
     justifyContent: "center", borderWidth: 1, borderColor: C.line2 },
-  btnPrimary: { backgroundColor: C.chrome, borderColor: "#FFFFFF" },
+  btnPrimary: { backgroundColor: C.chrome, borderColor: "#FFFFFF",
+    shadowColor: "#FFFFFF", shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   btnText: { ...HEAD, color: C.text, fontSize: 13 },
   mon: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
   monName: { color: C.text, fontWeight: "600", fontSize: 15 },
@@ -514,6 +562,10 @@ const s = StyleSheet.create({
   tab: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", borderRadius: 10 },
   tabOn: { backgroundColor: "rgba(226,231,240,0.09)" },
   tabText: { ...HEAD, color: C.faint, fontSize: 11 },
+  update: { marginHorizontal: 14, marginBottom: 6, padding: 11, borderRadius: 8,
+    backgroundColor: "rgba(226,231,240,0.10)", borderWidth: 1, borderColor: C.line2 },
+  updateText: { ...HEAD, color: C.text, fontSize: 11 },
+  rule: { height: 1, marginVertical: 14, backgroundColor: C.line },
   offline: { marginHorizontal: 14, marginBottom: 6, padding: 10, borderRadius: 8,
     backgroundColor: "rgba(232,96,95,0.14)", borderWidth: 1, borderColor: "rgba(232,96,95,0.4)" },
   offlineText: { color: "#FFC9C8", fontSize: 12.5 },
