@@ -45,10 +45,11 @@ jobs:
       - name: Build without code signing
         working-directory: phone/ios
         run: |
-          SCHEME=$(xcodebuild -list -json | python3 -c "import json,sys;print(json.load(sys.stdin)['workspace']['schemes'][0])")
-          echo "Building scheme $SCHEME"
+          SCHEME=$(ls -d *.xcodeproj | head -1 | sed 's/\.xcodeproj$//')
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          echo "Building scheme $SCHEME in $WORKSPACE"
           xcodebuild \
-            -workspace *.xcworkspace \
+            -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
