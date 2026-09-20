@@ -89,6 +89,55 @@ function Stat({ value, label }) {
   );
 }
 
+/* ------------------------------------------------------------------ the pet
+   Same sprite strips the desktop pet uses: one wide PNG per action, served by the PC. React
+   Native has no sprite cropping, so the strip sits inside a clipped box and slides left by one
+   frame width at a time. */
+const PET_FPS = 12, PET_BOX = 92, PET_IDLE = "idle", PET_CHEER = "cheer", PET_SLEEP = "sleep";
+
+function Pet({ host, state }) {
+  const [manifest, setManifest] = useState(null);
+  const [frame, setFrame] = useState(0);
+  const species = "blip";
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`http://${host}/static/pets/manifest.json`)
+      .then(r => r.json())
+      .then(m => { if (alive) setManifest(m[species] || null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [host]);
+
+  // what it is doing decides what it plays: cheering on a fresh clip, asleep when paused
+  const action = state.manual_paused ? PET_SLEEP
+    : (state.counts && state.counts.clips && state.status === "running") ? PET_CHEER : PET_IDLE;
+  const count = manifest && manifest.actions ? (manifest.actions[action] || 1) : 1;
+
+  useEffect(() => {
+    const id = setInterval(() => setFrame(f => (f + 1) % Math.max(1, count)), 1000 / PET_FPS);
+    return () => clearInterval(id);
+  }, [count]);
+
+  if (!manifest) return null;
+  const scale = PET_BOX / manifest.frame;
+  return (
+    <View style={s.petBox} accessibilityLabel={`Blip is ${action}`}>
+      <View style={{ width: PET_BOX, height: PET_BOX, overflow: "hidden" }}>
+        <Image
+          source={{ uri: `http://${host}/static/pets/${species}/${action}.png` }}
+          style={{
+            width: manifest.frame * count * scale,
+            height: PET_BOX,
+            transform: [{ translateX: -frame * manifest.frame * scale }],
+          }}
+          resizeMode="stretch"
+        />
+      </View>
+    </View>
+  );
+}
+
 function ago(iso) {
   const sec = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (sec < 60) return `${Math.round(sec)}s ago`;
@@ -188,7 +237,7 @@ function SignIn({ onDone }) {
   );
 }
 
-function Deck({ state, onPause, busy }) {
+function Deck({ state, onPause, busy, host }) {
   const counts = state.counts || {};
   const backlog = state.backlog || {};
   const paused = !!state.manual_paused;
@@ -211,10 +260,13 @@ function Deck({ state, onPause, busy }) {
           <View style={[s.trackFill, { width: `${Math.min(100, pressure)}%` },
             pressure > 70 && { backgroundColor: C.ember }]} />
         </View>
-        <View style={[s.row, { marginTop: 14 }]}>
-          <Stat value={counts.clips} label="clips" />
-          <Stat value={counts.posted} label="posted" />
-          <Stat value={counts.watching} label="watching" />
+        <View style={[s.row, { marginTop: 14, alignItems: "flex-end" }]}>
+          <View style={{ flex: 1, flexDirection: "row" }}>
+            <Stat value={counts.clips} label="clips" />
+            <Stat value={counts.posted} label="posted" />
+            <Stat value={counts.watching} label="watching" />
+          </View>
+          {!!host && <Pet host={host} state={state} />}
         </View>
         <View style={{ marginTop: 16 }}>
           <Btn label={paused ? "Resume" : "Pause"} kind="primary" onPress={onPause} busy={busy} />
@@ -407,7 +459,7 @@ export default function App() {
           refreshControl={<RefreshControl tintColor={C.muted} refreshing={refreshing}
             onRefresh={async () => { setRefreshing(true); await poll(); setRefreshing(false); }} />}
         >
-          {tab === "deck" && <Deck state={state} onPause={pause} busy={busy} />}
+          {tab === "deck" && <Deck state={state} onPause={pause} busy={busy} host={host} />}
           {tab === "clips" && <Clips host={host} token={token} onError={() => setOffline(true)} />}
           {tab === "log" && <Log host={host} token={token} state={state} onError={() => setOffline(true)} />}
         </ScrollView>
@@ -473,6 +525,7 @@ const s = StyleSheet.create({
     backgroundColor: C.plate2, color: C.text, fontSize: 16, borderWidth: 1, borderColor: C.line },
   error: { color: "#FFC9C8", fontSize: 13, marginTop: 12 },
   hint: { color: C.faint, fontSize: 12, marginTop: 14, lineHeight: 18 },
+  petBox: { width: 92, height: 92, justifyContent: "flex-end" },
   accounts: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   account: { minHeight: 40, paddingHorizontal: 14, justifyContent: "center", borderRadius: 8,
     backgroundColor: C.plate2, borderWidth: 1, borderColor: C.line },

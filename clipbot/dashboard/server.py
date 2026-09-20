@@ -268,8 +268,10 @@ def create_app(ctx) -> FastAPI:
 
     @app.post("/api/pet/log")
     async def pet_log(request: Request):
-        msg = str((await _json(request)).get("msg", ""))
-        logger.warning("pet page: %s", msg[:ERR_SNIPPET])
+        body = await _json(request)
+        msg = str(body.get("msg", ""))[:ERR_SNIPPET]
+        # only real page errors are issues; the boot line is just a note
+        (logger.warning if body.get("bad") else logger.info)("pet page: %s", msg)
         return {"ok": True}
 
     # ------------------------------------------------------------------ live viewer ("see what it sees")

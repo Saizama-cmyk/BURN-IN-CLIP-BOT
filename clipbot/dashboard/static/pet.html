@@ -45,9 +45,9 @@ svg.g{width:100%;height:46px;display:block}
 <script>
 "use strict";
 const K = new URLSearchParams(location.search).get("k");
-function report(msg) { fetch(`/api/pet/log?k=${K}`, {method: "POST", headers: {"X-ClipBot": "1", "Content-Type": "application/json"}, body: JSON.stringify({msg: String(msg)})}).catch(() => {}); }
-window.addEventListener("error", e => report(`${e.message} @${e.lineno}`));
-window.addEventListener("unhandledrejection", e => report(`promise: ${e.reason}`));
+function report(msg, bad) { fetch(`/api/pet/log?k=${K}`, {method: "POST", headers: {"X-ClipBot": "1", "Content-Type": "application/json"}, body: JSON.stringify({msg: String(msg), bad: !!bad})}).catch(() => {}); }
+window.addEventListener("error", e => report(`${e.message} @${e.lineno}`, true));
+window.addEventListener("unhandledrejection", e => report(`promise: ${e.reason}`, true));
 const api = () => window.pywebview && window.pywebview.api;
 const $ = s => document.querySelector(s);
 const NAMES = {blip: "Blip", ember: "Ember", moss: "Moss", nib: "Nib", glitch: "Glitch"};

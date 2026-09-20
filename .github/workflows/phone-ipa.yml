@@ -1,11 +1,12 @@
-# Builds BURN-IN Remote as an unsigned .ipa on a free GitHub macOS runner.
+# Builds BURN-IN Remote for iPhone (.ipa) and Android (.apk) on free GitHub runners.
 #
-# Apple's toolchain only runs on macOS, so this is how the app gets built without owning a Mac.
-# The .ipa is unsigned on purpose: AltStore / SideStore signs it with your own Apple ID when you
-# install it, which is what makes sideloading work without a paid developer account.
+# Apple's toolchain only runs on macOS, so the iOS build uses a macOS runner; Android builds on
+# Linux. The .ipa is unsigned on purpose: your sideloader (AltStore, SideStore, Feather,
+# Sideloadly, ESign, TrollStore) signs it with your own Apple ID. The .apk installs directly.
 #
-# Run it from the repo's Actions tab ("Run workflow"), then download the artifact.
-name: Phone app (.ipa)
+# Every run stamps the app as 1.0.<run number>, so each build is a real upgrade and the sideload
+# feed matches the binary exactly - AltStore refuses to install when those two disagree.
+name: Phone app (.ipa + .apk)
 
 on:
   workflow_dispatch:
@@ -15,22 +16,44 @@ on:
       - ".github/workflows/phone-ipa.yml"
 
 permissions:
-  contents: write          # publish the .ipa as a release and commit the AltStore source
+  contents: write          # publish the builds as a release and commit the sideload feed
 
 jobs:
-  ipa:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+  ios:
+    needs: version
     runs-on: macos-14
     timeout-minutes: 45
     defaults:
       run:
         working-directory: phone
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Stamp the version
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path("app.json")
+          d = json.loads(p.read_text())
+          d["expo"]["version"] = os.environ["VERSION"]
+          d["expo"]["ios"]["buildNumber"] = os.environ["RUN_NUMBER"]
+          p.write_text(json.dumps(d, indent=2))
+          print("version", d["expo"]["version"])
+          PY
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -75,28 +98,92 @@ jobs:
           name: BURN-IN-Remote-ipa
           path: phone/ios/BURN-IN-Remote.ipa
           if-no-files-found: error
-          retention-days: 30
 
-      - name: Publish it as a release so AltStore can update the phone
-        if: github.ref == 'refs/heads/main'
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: phone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Stamp the version
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path("app.json")
+          d = json.loads(p.read_text())
+          d["expo"]["version"] = os.environ["VERSION"]
+          d["expo"]["android"]["versionCode"] = int(os.environ["RUN_NUMBER"])
+          p.write_text(json.dumps(d, indent=2))
+          PY
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build the APK
+        working-directory: phone/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Collect the APK
+        working-directory: phone/android
+        run: |
+          APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
+          test -n "$APK" || { echo "no apk produced"; exit 1; }
+          cp "$APK" ../BURN-IN-Remote.apk
+          ls -lh ../BURN-IN-Remote.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BURN-IN-Remote-apk
+          path: phone/BURN-IN-Remote.apk
+          if-no-files-found: error
+
+  publish:
+    needs: [version, ios, android]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: builds
+
+      - name: Release both builds and refresh the sideload feed
         env:
           GH_TOKEN: ${{ github.token }}
-        working-directory: phone/ios
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
-          VERSION=$(python3 -c "import json;print(json.load(open('../app.json'))['expo']['version'])")
-          BUILD=$GITHUB_RUN_NUMBER
-          NOTES="Unsigned on purpose: your sideloader signs it with your own Apple ID. Works with AltStore, SideStore, Feather, Sideloadly, ESign and TrollStore."
-          TAG="phone-v$VERSION.$BUILD"
-          for T in "$TAG" "phone-latest"; do
-            gh release delete "$T" --yes --cleanup-tag 2>/dev/null || true
-            gh release create "$T" BURN-IN-Remote.ipa --title "BURN-IN Remote $VERSION ($BUILD)" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+          IPA=$(find builds -name "*.ipa" | head -1)
+          APK=$(find builds -name "*.apk" | head -1)
+          NOTES="iPhone: unsigned on purpose - your sideloader signs it with your own Apple ID (AltStore, SideStore, Feather, Sideloadly, ESign, TrollStore). Android: install the .apk directly."
+          for TAG in "phone-v$VERSION" "phone-latest"; do
+            gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+            gh release create "$TAG" "$IPA" "$APK" \
+              --title "BURN-IN Remote $VERSION" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
           done
-          SIZE=$(stat -f%z BURN-IN-Remote.ipa)
+          SIZE=$(stat -c%s "$IPA")
           URL="https://github.com/$GITHUB_REPOSITORY/releases/download/phone-latest/BURN-IN-Remote.ipa"
-          cd "$GITHUB_WORKSPACE"
-          python3 installer/altstore_source.py "$GITHUB_REPOSITORY" "$TAG" "$URL" "$SIZE"
+          python3 installer/altstore_source.py "$GITHUB_REPOSITORY" "phone-v$VERSION" "$URL" "$SIZE"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/altstore.json
-          git commit -m "phone: AltStore source for $TAG" || exit 0
+          git add docs/
+          git commit -m "phone: sideload feed for $VERSION" || exit 0
           git push

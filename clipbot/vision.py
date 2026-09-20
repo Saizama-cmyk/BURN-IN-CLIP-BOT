@@ -169,8 +169,11 @@ class Vision:
             self.last_error = ""
             return VisionResult(text[:ai.vision_max_chars], len(frames), times=saved_times)
         except (httpx.HTTPError, RuntimeError, CmdTimeout, ValueError) as exc:
-            self.last_error = str(exc) or type(exc).__name__
-            logger.warning("vision skipped for %s: %s", video.name, self.last_error)
+            error = str(exc) or type(exc).__name__
+            # while Ollama is down every clip fails the same way; say it once, not 200 times
+            level = logger.info if error == self.last_error else logger.warning
+            level("vision skipped for %s: %s", video.name, error)
+            self.last_error = error
             return VisionResult("", 0, self.last_error)
 
 
