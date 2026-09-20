@@ -28,6 +28,16 @@
     "android": {
       "package": "os.spike.burnin.remote",
       "usesCleartextTraffic": true
-    }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
+    ]
   }
 }

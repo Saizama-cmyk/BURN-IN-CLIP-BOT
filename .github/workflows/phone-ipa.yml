@@ -157,7 +157,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [version, ios, android]
+    needs: [version, ios]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -172,11 +172,12 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           IPA=$(find builds -name "*.ipa" | head -1)
-          APK=$(find builds -name "*.apk" | head -1)
+          APK=$(find builds -name "*.apk" | head -1)      # missing if Android failed
+          test -n "$IPA" || { echo "no .ipa to publish"; exit 1; }
           NOTES="iPhone: unsigned on purpose - your sideloader signs it with your own Apple ID (AltStore, SideStore, Feather, Sideloadly, ESign, TrollStore). Android: install the .apk directly."
           for TAG in "phone-v$VERSION" "phone-latest"; do
             gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-            gh release create "$TAG" "$IPA" "$APK" \
+            gh release create "$TAG" "$IPA" $APK \
               --title "BURN-IN Remote $VERSION" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
           done
           SIZE=$(stat -c%s "$IPA")
