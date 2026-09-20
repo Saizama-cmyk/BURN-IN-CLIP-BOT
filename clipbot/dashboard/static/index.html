@@ -67,6 +67,11 @@ h2{font:600 15px/1.2 var(--head);letter-spacing:.1em;text-transform:uppercase;ma
 .dim{color:var(--muted)} .small{font-size:12.5px}
 .ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 
+/* the keyboard shortcut past the rail: off-screen until it is focused */
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;padding:10px 16px;border-radius:0 0 8px 0;
+  background:var(--plate-3);color:var(--text);box-shadow:var(--rim);
+  font:700 11px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;text-decoration:none}
+html[data-kbd] .skip-link:focus{left:0}   /* only after the user has actually pressed Tab */
 /* ---------------------------------------------------------------- chrome hearts, the house style
    Sterling hardware on black leather: everything reads as a machined silver part bolted to a
    dark hide. Three moves carry it - an engraved rim on every plate, a hairline chrome divider
@@ -76,15 +81,15 @@ h2{font:600 15px/1.2 var(--head);letter-spacing:.1em;text-transform:uppercase;ma
 .plate-rule::after{content:"";position:absolute;left:50%;top:-3px;width:7px;height:7px;transform:translateX(-50%) rotate(45deg);
   background:linear-gradient(135deg,#FFFFFF,#8A9099);box-shadow:0 0 0 1px rgba(0,0,0,.6)}
 /* corner studs: four little domed rivets, drawn with gradients so they catch the light */
-.panel{--stud:radial-gradient(circle at 35% 30%,#FFFFFF,#C9CED6 38%,#6E737C 60%,#2A2C31 100%)}
+.panel{--stud:radial-gradient(circle at 34% 28%,rgba(255,255,255,.95),rgba(190,196,205,.8) 40%,rgba(90,95,104,.75) 62%,rgba(20,21,25,.7) 100%)}
 .panel::after{content:"";position:absolute;inset:8px;border-radius:calc(var(--r) - 6px);pointer-events:none;
   background:
-    var(--stud) left 0 top 0/7px 7px no-repeat,
-    var(--stud) right 0 top 0/7px 7px no-repeat,
-    var(--stud) left 0 bottom 0/7px 7px no-repeat,
-    var(--stud) right 0 bottom 0/7px 7px no-repeat;
-  opacity:.5}
-.panel:hover::after{opacity:.85}
+    var(--stud) left 0 top 0/5px 5px no-repeat,
+    var(--stud) right 0 top 0/5px 5px no-repeat,
+    var(--stud) left 0 bottom 0/5px 5px no-repeat,
+    var(--stud) right 0 bottom 0/5px 5px no-repeat;
+  opacity:.38}
+.panel:hover::after{opacity:.7}
 /* the rail wears the mark like a pendant */
 .brand img{filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)) drop-shadow(0 0 1px rgba(255,255,255,.35))}
 /* leather: a fine pebbled grain under the plates, not a photo */
@@ -737,7 +742,6 @@ nav button:hover .i3{transform:scale(1.08)}
 <link rel="stylesheet" href="/static/workspace.css">
 </head>
 <body>
-<a class="skip-link" href="#workspace">Skip to workspace</a>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-live" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.3 5.3a9.5 9.5 0 0 0 0 13.4M18.7 5.3a9.5 9.5 0 0 1 0 13.4"/></symbol>
   <symbol id="i-clips" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2"/><path d="M6.5 6.5h11M6.5 17.5h11M10.5 10v4l3.2-2z"/></symbol>
@@ -1168,6 +1172,10 @@ function renderHeader(s) {
 }
 let pollFails = 0;
 const CONN_FAILS = 3;
+// the skip link is for keyboard users; nothing focused at startup should reveal it
+document.addEventListener("keydown", e => {
+  if (e.key === "Tab") document.documentElement.setAttribute("data-kbd", "1");
+}, {once: true});
 async function poll() {
   clearTimeout(pollTimer);
   if (document.hidden || $("#lock").classList.contains("show")) { pollTimer = setTimeout(poll, refreshMs); return; }
