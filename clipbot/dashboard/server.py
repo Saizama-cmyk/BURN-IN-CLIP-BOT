@@ -44,6 +44,7 @@ logger = logging.getLogger("clipbot.server")
 
 ACTION_HEADER = "x-clipbot"
 BEARER = "bearer "
+MESH_RANGE = ipaddress.ip_network("100.64.0.0/10")   # carrier-grade NAT space; Tailscale uses it
 _ID_RE = re.compile(r"^[0-9a-f]{6,32}$")
 _OAUTH_PLATFORMS = ("youtube", "tiktok")
 _PUBLIC = ("/static/", "/api/auth/", "/oauth/youtube/callback", "/oauth/tiktok/callback")
@@ -67,9 +68,11 @@ def _private_host(host: str, port: int) -> bool:
     if got and got != str(port):
         return False
     try:
-        return ipaddress.ip_address(name).is_private
+        ip = ipaddress.ip_address(name)
     except ValueError:
         return False
+    # home network, or a private mesh like Tailscale/ZeroTier, which hands out 100.64.0.0/10
+    return ip.is_private or ip in MESH_RANGE
 
 
 def static_dir() -> Path:
