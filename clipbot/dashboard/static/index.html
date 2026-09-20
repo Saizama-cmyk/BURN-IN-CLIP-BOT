@@ -729,7 +729,12 @@ nav button:hover .i3{transform:scale(1.08)}
 #sys .hist i{flex:1;background:var(--chrome);border-radius:3px 3px 0 0;min-height:2px}
 
 /* ---------------------------------------------------------------- settings guide */
-.guide{margin:0 16px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.025)}
+/* each section explains itself: always open, quiet, and out of the way of the controls */
+.guide{margin:0 20px 16px;padding:13px 16px;border-radius:var(--rc);background:rgba(255,255,255,.025);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px var(--line)}
+.guide>div{padding:0;line-height:1.7;color:#C9CDD4;font-size:13px}
+.guide>div b{color:var(--text)}
+.guide>summary{display:none}
 .guide>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:10px 14px;font:600 12.5px var(--body);color:var(--muted)}
 .guide>summary::-webkit-details-marker{display:none}
 .guide>summary::before{content:"?";width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--chrome);color:#0A0A0C;font-weight:800;font-size:12px}
@@ -1397,12 +1402,11 @@ function phoneChip(state) {
       <p class="dim small">Sign in with your profile password. In Safari, tap Share then <b>Add to Home Screen</b> and it behaves like an app.</p>`,
     ok: "Copy address", cancel: "Close"}).then(yes => { if (yes) navigator.clipboard?.writeText(url); });
 }
-  $("#sections").innerHTML = `<details class="guide start" open><summary>Start here: how BURN-IN works</summary><div>${GUIDE.start}</div></details>` + Object.entries(top).map(([k, raw]) => {
+  $("#sections").innerHTML = Object.entries(top).map(([k, raw]) => {
     const node = deref(raw);
     return `<fieldset id="sec-${k}"><legend>${esc(raw.title || k)}</legend>
-      <div class="fs-head"><h2>${esc(raw.title || k)}</h2><p>${esc(node.description || "")}</p>
-        <button class="btn ghost" type="button" data-reset-section="${k}">Reset to default</button></div>
-      ${GUIDE[k] ? `<details class="guide"><summary>How this works</summary><div>${GUIDE[k]}</div></details>` : ""}
+      <div class="fs-head"><h2>${esc(raw.title || k)}</h2><p>${esc(node.description || "")}</p></div>
+      ${GUIDE[k] ? `<div class="guide"><div>${GUIDE[k]}</div></div>` : ""}
       ${k === "accounts" ? oauthButtons() : ""}
       <div class="fields">${objectFields(node, [k])}</div></fieldset>`;
   }).join("");
