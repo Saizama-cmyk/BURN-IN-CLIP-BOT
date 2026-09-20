@@ -1,0 +1,34 @@
+{
+  "name": "BURN-IN Remote",
+  "identifier": "os.spike.burnin",
+  "subtitle": "Run your clip desk from your phone.",
+  "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark-96.png",
+  "website": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT",
+  "tintColor": "DDE1E7",
+  "apps": [
+    {
+      "name": "BURN-IN Remote",
+      "bundleIdentifier": "os.spike.burnin.remote",
+      "developerName": "BURN-IN",
+      "subtitle": "Status, streams, clips and post-now, over your own Wi-Fi.",
+      "localizedDescription": "The BURN-IN desk on your phone: what it is watching, what it has cut, and a post-now button. Talks to the app on your PC over your own network - no account, nothing leaves your Wi-Fi.",
+      "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark-96.png",
+      "tintColor": "DDE1E7",
+      "category": "utilities",
+      "screenshotURLs": [
+        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark.png"
+      ],
+      "versions": [
+        {
+          "version": "phone-v1.0.0",
+          "date": "2026-09-20",
+          "localizedDescription": "BURN-IN phone-v1.0.0.",
+          "downloadURL": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/download/phone-latest/BURN-IN-Remote.ipa",
+          "size": 12345678,
+          "minOSVersion": "15.1"
+        }
+      ]
+    }
+  ],
+  "news": []
+}

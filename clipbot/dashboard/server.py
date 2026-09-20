@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
+from .. import __version__
 from ..checklist import run_checklist
 from ..clipability import AIUnavailable
 from ..config import (LEAF_FIELDS, RESTART_FIELDS, SECRET_FIELDS, Settings, export_settings,
@@ -439,6 +440,7 @@ def create_app(ctx) -> FastAPI:
         snap["viewer_poll_ms"] = ctx.settings.viewer.poll_ms
         snap["updates_on_start"] = ctx.settings.updates.check_on_start and bool(ctx.settings.updates.repo)
         snap["remote_url"] = ctx.lan_url if ctx.settings.dashboard.remote else ""
+        snap["version"] = __version__
         return snap
 
     @app.get("/api/setup")

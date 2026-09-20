@@ -14,6 +14,9 @@ on:
       - "phone/**"
       - ".github/workflows/phone-ipa.yml"
 
+permissions:
+  contents: write          # publish the .ipa as a release and commit the AltStore source
+
 jobs:
   ipa:
     runs-on: macos-14
@@ -72,3 +75,27 @@ jobs:
           path: phone/ios/BURN-IN-Remote.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish it as a release so AltStore can update the phone
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: phone/ios
+        run: |
+          VERSION=$(python3 -c "import json;print(json.load(open('../app.json'))['expo']['version'])")
+          BUILD=$GITHUB_RUN_NUMBER
+          NOTES="Unsigned on purpose: your sideloader signs it with your own Apple ID. Works with AltStore, SideStore, Feather, Sideloadly, ESign and TrollStore."
+          TAG="phone-v$VERSION.$BUILD"
+          for T in "$TAG" "phone-latest"; do
+            gh release delete "$T" --yes --cleanup-tag 2>/dev/null || true
+            gh release create "$T" BURN-IN-Remote.ipa --title "BURN-IN Remote $VERSION ($BUILD)" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+          done
+          SIZE=$(stat -f%z BURN-IN-Remote.ipa)
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/phone-latest/BURN-IN-Remote.ipa"
+          cd "$GITHUB_WORKSPACE"
+          python3 installer/altstore_source.py "$GITHUB_REPOSITORY" "$TAG" "$URL" "$SIZE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/altstore.json
+          git commit -m "phone: AltStore source for $TAG" || exit 0
+          git push
