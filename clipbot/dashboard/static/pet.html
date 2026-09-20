@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BURN-IN pet</title>
+<style>
+:root{--acc:#C9CED6;--ink:#0B0B0D;--txt:#EDEFF2;--mut:#8B909A}
+html,body{margin:0;background:transparent;overflow:hidden;user-select:none;font:12px/1.35 'Segoe UI',system-ui,sans-serif;color:var(--txt)}
+#stage{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#pet{position:absolute;left:0;top:0;transform-origin:50% 100%;will-change:transform;
+  image-rendering:auto;transform:translate3d(0,0,0)}
+#mood{position:absolute;left:0;top:0;max-width:min(420px,calc(100vw - 16px));opacity:0;will-change:transform,opacity;transition:opacity .25s,transform .3s cubic-bezier(.3,1.5,.5,1);
+  display:flex;gap:6px;align-items:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:6px 10px;border-radius:12px;
+  background:linear-gradient(180deg,#26272B,#111214);border:1px solid #3A3C42;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+  font-weight:600;pointer-events:none}
+#mood.show{opacity:1}
+#mood.badge{padding:3px 8px;border-radius:999px;font-size:11px}
+#mood.icon .t{display:none}
+#mood .i{width:22px;height:22px;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+#mood::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;background:#111214;border-right:1px solid #3A3C42;border-bottom:1px solid #3A3C42;transform:translateX(-50%) rotate(45deg)}
+#mood.k-clip{border-color:var(--acc)} #mood.k-post{border-color:#6FD39A} #mood.k-bad{border-color:#E26A6A}
+#card{position:absolute;left:0;top:0;width:340px;z-index:5;display:none;padding:12px;border-radius:16px;
+  background:linear-gradient(180deg,rgba(28,29,33,.97),rgba(12,12,14,.97));border:1px solid #3A3C42;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+#card.show{display:block;animation:pop .22s cubic-bezier(.3,1.4,.5,1)}
+#mood,#card{transition:opacity .2s}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}}
+.hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.hd b{font:700 16px/1 'Segoe UI';letter-spacing:.04em;background:linear-gradient(180deg,#fff,#9DA3AD);-webkit-background-clip:text;color:transparent}
+.pill{margin-left:auto;padding:2px 8px;border-radius:999px;border:1px solid #3A3C42;font-size:11px;color:var(--mut)}
+.pill.on{color:#6FD39A;border-color:#2F5E43}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.k{padding:7px 8px;border-radius:10px;background:#18191C;border:1px solid #2A2C31}
+.k .v{font:700 18px/1.1 'Segoe UI';color:#fff}.k .l{color:var(--mut);font-size:10.5px}
+.sec{color:var(--mut);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;margin:8px 0 4px}
+.tr{display:flex;gap:8px;align-items:center;padding:6px;border-radius:10px;background:#18191C;border:1px solid #2A2C31}
+.tr img{width:84px;height:47px;object-fit:cover;border-radius:6px;background:#000}
+.tr .n{font-weight:700}.tr .s{color:var(--mut);font-size:11px}
+svg.g{width:100%;height:46px;display:block}
+.btns{display:flex;gap:6px;margin-top:10px}
+.btns button{flex:1;height:30px;border-radius:9px;border:1px solid #44474E;color:#fff;cursor:pointer;font:600 12px 'Segoe UI';
+  background:linear-gradient(180deg,#3A3C42,#1C1D21);box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+.btns button:hover,.btns button.hot{border-color:#8B909A;background:linear-gradient(180deg,#45474E,#212227)}.btns button:active{transform:translateY(1px)}
+</style></head>
+<body>
+<div id="card"></div>
+<div id="stage"><div id="mood"><img class="i" alt=""><span class="t"></span></div><canvas id="pet" width="128" height="128"></canvas></div>
+<script>
+"use strict";
+const K = new URLSearchParams(location.search).get("k");
+function report(msg) { fetch(`/api/pet/log?k=${K}`, {method: "POST", headers: {"X-ClipBot": "1", "Content-Type": "application/json"}, body: JSON.stringify({msg: String(msg)})}).catch(() => {}); }
+window.addEventListener("error", e => report(`${e.message} @${e.lineno}`));
+window.addEventListener("unhandledrejection", e => report(`promise: ${e.reason}`));
+const api = () => window.pywebview && window.pywebview.api;
+const $ = s => document.querySelector(s);
+const NAMES = {blip: "Blip", ember: "Ember", moss: "Moss", nib: "Nib", glitch: "Glitch"};
+const ACCENT = {blip: "#C9CED6", ember: "#F2A93B", moss: "#8FD18B", nib: "#E7E2D6", glitch: "#B78CFF"};
+let cfg = null, st = null, prev = null, manifest = null, frames = {}, action = "idle", fi = 0, facing = 1;
+const DPR = window.devicePixelRatio || 1;          // the bridge works in physical pixels
+const css = v => v / DPR;                          // physical px -> CSS px inside the overlay
+let area = null, busy = 0, lastEvent = Date.now(), dragging = null, hover = false;
+const pet = {x: 0, y: 0, vy: 0, size: 120, walkTo: null};   // CSS px inside the overlay
+
+/* ---------- sprites: Blender-rendered frames (static/pets/<species>/<action>/NNN.png) ---------- */
+async function loadSpecies(sp) {
+  frames = {};
+  const m = await fetch(`/static/pets/manifest.json`).then(r => r.ok ? r.json() : null).catch(() => null);
+  manifest = m && m[sp] ? m[sp] : null;
+  if (!manifest) return;
+  for (const [act, n] of Object.entries(manifest.actions)) {        // one strip per action
+    const im = new Image(); im.src = `/static/pets/${sp}/${act}.png`;
+    frames[act] = {im, n, length: n};
+  }
+}
+function play(act, hold) {
+  if (!frames[act] && act !== "idle") act = "idle";
+  if (action === act) return;
+  action = act; fi = 0; busy = hold || 0;
+}
+const cv = $("#pet"), cx = cv.getContext("2d");
+function floorY() { return css(area.h) - pet.size; }
+
+/* one 60 fps loop: sprite clock, physics, walking, and the transform that draws it all */
+let acc = 0, last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (!cfg || !area) return;
+
+  const size = 40 * cfg.scale;
+  if (pet.size !== size) { pet.size = size; cv.width = cv.height = size; }
+
+  acc += dt;                                                   // sprite clock
+  const step = 1 / cfg.fps;
+  while (acc >= step) {
+    acc -= step;
+    const list = frames[action];
+    fi++;
+    if (list && fi >= list.length) { fi = 0; if (busy > 0 && --busy === 0) action = "idle"; }
+    if (!list && busy > 0 && fi > cfg.fps * 2) { busy = 0; action = "idle"; }
+  }
+  if (!dragging && !hover) life(dt);
+  drawPet();
+  placeBubbles();
+  reportHit();
+}
+function life(dt) {
+  if (pet.y < floorY() - 0.5 && cfg.gravity) {                  // falling
+    pet.vy += cfg.fall_px_s2 * dt; play("fall");
+    pet.y = Math.min(floorY(), pet.y + pet.vy * dt);
+    if (pet.y >= floorY()) { pet.vy = 0; play("land", 1); savePlace(); }
+    return;
+  }
+  if (pet.walkTo !== null) {                                    // strolling
+    const d = pet.walkTo - pet.x, move = cfg.walk_px_s * dt;
+    if (Math.abs(d) <= move) { pet.x = pet.walkTo; pet.walkTo = null; play("idle"); savePlace(); }
+    else { pet.x += Math.sign(d) * move; facing = Math.sign(d); play("walk"); }
+    return;
+  }
+  const asleep = cfg.sleep_after_min > 0 && Date.now() - lastEvent > cfg.sleep_after_min * 60000;
+  if (asleep || (st && st.manual_paused)) {
+    if (action !== "sleep") { play("sleep"); mood("sleep", st && st.manual_paused ? "Paused… napping" : "zzz", "clip"); }
+    return;
+  }
+  if (busy || action !== "idle") return;
+  if (Math.random() < dt * 0.25 * (0.3 + cfg.activity * 1.7)) {  // spontaneous antics
+    const r = Math.random();
+    if (cfg.wander && r < 0.45) {
+      const span = Math.min(420, css(area.w) / 3);
+      pet.walkTo = clamp(pet.x + (Math.random() * 2 - 1) * span, 0, css(area.w) - pet.size);
+      facing = pet.walkTo > pet.x ? 1 : -1; play("walk");
+    } else play(["look", "hop", "spin", "wave", "dance", "stretch"][Math.floor(Math.random() * 6)], 1);
+  }
+}
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function drawPet() {
+  const size = pet.size;
+  cx.clearRect(0, 0, size, size);
+  const list = frames[action] || frames.idle;
+  if (list && list.length && list.im.complete && list.im.naturalWidth) {
+    const f = manifest.frame;
+    cx.drawImage(list.im, (fi % list.n) * f, 0, f, f, 0, 0, size, size);
+  } else if (!list) {                    // fallback until the 3D frames exist: a chrome droplet
+    const t = Date.now() / 400, r = size * .32, y = size * .58 + Math.sin(t) * size * .03;
+    const g = cx.createRadialGradient(size * .42, y - r * .5, r * .1, size / 2, y, r);
+    g.addColorStop(0, "#fff"); g.addColorStop(.35, "#B9BEC7"); g.addColorStop(1, "#2A2C31");
+    cx.fillStyle = g; cx.beginPath(); cx.ellipse(size / 2, y, r, r * .9, 0, 0, 7); cx.fill();
+  }
+  // the renders face one way; every pet turns to face where it walks, except Blip (it moonwalks)
+  const moonwalk = cfg.species === "blip", flip = moonwalk ? facing < 0 : facing > 0;
+  cv.style.transform = `translate3d(${pet.x.toFixed(2)}px,${pet.y.toFixed(2)}px,0)` + (flip ? " scaleX(-1)" : "");
+  cv.style.transformOrigin = "50% 50%";
+}
+function placeBubbles() {
+  const m = $("#mood"), cardEl = $("#card");
+  const midX = pet.x + pet.size / 2;
+  m.style.transform = `translate3d(${(midX - m.offsetWidth / 2).toFixed(1)}px,${(pet.y - m.offsetHeight - 10).toFixed(1)}px,0)`;
+  if (hover) {
+    const w = cardEl.offsetWidth, h = cardEl.offsetHeight;
+    const x = clamp(midX - w / 2, 8, css(area.w) - w - 8);
+    const above = pet.y - h - 12;
+    cardEl.style.transform = `translate3d(${x.toFixed(1)}px,${(above > 8 ? above : Math.min(pet.y + pet.size + 12, css(area.h) - h - 8)).toFixed(1)}px,0)`;
+  }
+}
+/* Python needs to know where we are: colour-keyed windows get no mouse messages at all */
+let lastHit = "";
+function reportHit() {
+  const cardEl = $("#card"), parts = [[pet.x, pet.y, pet.size, pet.size]];
+  if (hover) {
+    const t = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(cardEl.style.transform);
+    if (t) parts.push([+t[1], +t[2], cardEl.offsetWidth, cardEl.offsetHeight]);
+  }
+  const x0 = Math.min(...parts.map(r => r[0])), y0 = Math.min(...parts.map(r => r[1]));
+  const x1 = Math.max(...parts.map(r => r[0] + r[2])), y1 = Math.max(...parts.map(r => r[1] + r[3]));
+  const hit = [area.x + x0 * DPR, area.y + y0 * DPR, (x1 - x0) * DPR, (y1 - y0) * DPR].map(Math.round);
+  const key = hit.join();
+  if (key !== lastHit) { lastHit = key; const a = api(); if (a) a.hit(...hit); }
+}
+function savePlace() {
+  fetch(`/api/pet/place?k=${K}`, {method: "POST", headers: {"X-ClipBot": "1", "Content-Type": "application/json"},
+                                  body: JSON.stringify({x: Math.round(pet.x * DPR), y: Math.round(pet.y * DPR)})});
+}
+
+/* ---------- moodlets ---------- */
+const FINISH = {blip: "chrome", moss: "chrome", nib: "chrome", ember: "ember", glitch: "pearl"};   // 3D icon set per pet
+const queue = [];
+let moodTimer = null;
+function mood(kind, text, cls) {
+  if (!cfg) return;
+  if (cfg.sounds && cfg.volume > 0) { const a = new Audio(`/static/sfx/${kind}.wav`); a.volume = cfg.volume; a.play().catch(() => {}); }
+  if (!cfg.moodlets) return;
+  queue.push([kind, text, cls]);
+  if (!moodTimer) nextMood();
+}
+function nextMood() {
+  const m = $("#mood"), it = queue.shift();
+  if (!it) { m.classList.remove("show"); moodTimer = null; return; }
+  m.className = `${cfg.moodlet_style} k-${it[2] || "clip"}`;
+  m.querySelector(".i").src = `/static/pets/icons/${FINISH[cfg.species] || "chrome"}/${it[0]}.png`;
+  m.querySelector(".t").textContent = it[1];
+  requestAnimationFrame(() => m.classList.add("show"));
+  moodTimer = setTimeout(() => { m.classList.remove("show"); setTimeout(nextMood, 300); }, cfg.moodlet_seconds * 1000);
+}
+
+/* ---------- events from BURN-IN ---------- */
+function react(s) {
+  if (!prev) return;
+  const c = s.counts, p = prev.counts, top = s.streams[0];
+  if (cfg.on_clip && c.clips > p.clips) { mood("clip", `+${c.clips - p.clips} clip${top ? " · " + top.name : ""}`, "clip"); play("cheer", 2); lastEvent = Date.now(); }
+  if (cfg.on_post && c.posted > p.posted) { mood("post", `Posted! ${Object.entries(s.posted_by_platform).filter(([, n]) => n).map(([k]) => k).join(", ")}`, "post"); play("dance", 3); lastEvent = Date.now(); }
+  if (cfg.on_reject && c.rejected > p.rejected) { mood("reject", "Judge passed on one", "bad"); play("sad", 1); }
+  if (cfg.on_spike && c.spikes > p.spikes && top) { mood("spike", `${top.name} chat is popping`, "clip"); play("surprised", 1); lastEvent = Date.now(); }
+  if (cfg.on_trouble && s.trouble.length && s.trouble.join() !== prev.trouble.join()) { mood("trouble", s.trouble[0], "bad"); play("sad", 1); }
+}
+async function poll() {
+  try {
+    const r = await fetch(`/api/pet/state?k=${K}`);
+    if (r.ok) {
+      const s = await r.json();
+      const sp = cfg && cfg.species;
+      cfg = s.pet;
+      document.documentElement.style.setProperty("--acc", cfg.custom_accent ? cfg.accent_color : ACCENT[cfg.species]);
+      if (sp !== cfg.species) await loadSpecies(cfg.species);
+      react(s); prev = st = s;
+      if (hover) renderCard();
+    }
+  } catch (e) { /* engine restarting: try again next tick */ }
+  setTimeout(poll, cfg ? cfg.poll_ms : 2000);
+}
+
+/* ---------- input: the overlay is click-through, so Python watches the cursor ---------- */
+window.PetIn = {
+  grab(sx, sy) { dragging = {dx: css(sx - area.x) - pet.x, dy: css(sy - area.y) - pet.y}; play("held"); },
+  drag(sx, sy) {
+    if (!dragging) return;
+    pet.x = clamp(css(sx - area.x) - dragging.dx, 0, css(area.w) - pet.size);
+    pet.y = clamp(css(sy - area.y) - dragging.dy, 0, floorY());
+    pet.walkTo = null; pet.vy = 0;
+  },
+  drop(moved) {
+    dragging = null;
+    if (moved) { play("idle"); savePlace(); } else { play("love", 1); mood("love", "hi!", "post"); }
+  },
+  enter() { openCard(); },
+  leave() { closeCard(); },
+  at(sx, sy) {                                   // Python tells us where the mouse is
+    const b = buttonAt(sx, sy);
+    document.querySelectorAll(".hot").forEach(n => { if (n !== b) n.classList.remove("hot"); });
+    if (b) b.classList.add("hot");
+  },
+  click(sx, sy) { const b = buttonAt(sx, sy); if (b) b.click(); },
+};
+function buttonAt(sx, sy) {
+  const el = document.elementFromPoint(css(sx - area.x), css(sy - area.y));
+  return el && el.closest("button");
+}
+
+/* ---------- hover card ---------- */
+let hoverTimer = null;
+async function openCard() {
+  if (hover || dragging || !cfg || !(cfg.card_stats || cfg.card_trending || cfg.card_graphs)) return;
+  hover = true; pet.walkTo = null; play("wave", 1);
+  const a = api(); if (a) a.interactive(true);
+  renderCard(); $("#card").classList.add("show");
+  placeBubbles();
+}
+async function closeCard() {
+  if (!hover) return;
+  hover = false; $("#card").classList.remove("show");
+  document.querySelectorAll(".hot").forEach(n => n.classList.remove("hot"));
+  const a = api(); if (a) a.interactive(false);
+}
+function spark(pts, w = 316, h = 46) {
+  if (!pts || pts.length < 2) return "";
+  const max = Math.max(1, ...pts.map(p => Math.max(p[0], p[1])));
+  const xy = (v, i) => `${(i / (pts.length - 1) * w).toFixed(1)},${(h - 3 - v / max * (h - 8)).toFixed(1)}`;
+  return `<svg class="g" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts.map((p, i) => xy(p[1], i)).join(" ")}" fill="none" stroke="#5A5E66" stroke-dasharray="3 3"/>
+    <polyline points="${pts.map((p, i) => xy(p[0], i)).join(" ")}" fill="none" stroke="var(--acc)" stroke-width="2"/></svg>`;
+}
+function bars(vals, hi, w = 316, h = 46) {
+  const max = Math.max(1, ...vals), bw = w / vals.length;
+  return `<svg class="g" viewBox="0 0 ${w} ${h}">${vals.map((v, i) => `<rect x="${i * bw + 2}" y="${h - v / max * (h - 4)}" width="${bw - 4}" height="${v / max * (h - 4)}" rx="3" fill="#3A3C42"/>
+    <rect x="${i * bw + 2}" y="${h - (hi[i] || 0) / max * (h - 4)}" width="${bw - 4}" height="${(hi[i] || 0) / max * (h - 4)}" rx="3" fill="var(--acc)"/>`).join("")}</svg>`;
+}
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function renderCard() {
+  if (!st) return;
+  const s = st, c = s.counts, top = s.streams[0];
+  const name = cfg.name || NAMES[cfg.species];
+  let h = `<div class="hd"><b>${esc(name).toUpperCase()}</b><span class="pill ${s.status === "running" ? "on" : ""}">${esc(s.manual_paused ? "paused" : s.status)}</span></div>`;
+  if (cfg.card_stats) h += `<div class="grid">${[["clips", c.clips], ["posted", c.posted], ["watching", c.watching], ["in queue", (s.backlog.in_flight ?? 0)], ["rejected", c.rejected], ["GPU", s.gpu ? Math.round(s.gpu.util) + "%" : "—"]]
+    .map(([l, v]) => `<div class="k"><div class="v">${esc(v)}</div><div class="l">${l}</div></div>`).join("")}</div>`;
+  if (cfg.card_trending) h += `<div class="sec">Trending now</div>` + (top ? `<div class="tr"><img src="/api/pet/thumb.jpg?k=${K}&key=${encodeURIComponent(top.key)}&t=${Date.now() >> 14}" onerror="this.style.visibility='hidden'">
+    <div><div class="n">${esc(top.name)}</div><div class="s">${esc(top.category)} · ${Number(top.viewers).toLocaleString()} viewers</div><div class="s">chat ${top.rate}/s · z ${top.warm ? top.z : "warming"}</div></div></div>` : `<div class="s" style="color:var(--mut)">Nothing live on the board yet.</div>`);
+  if (cfg.card_graphs) h += (top ? `<div class="sec">${esc(top.name)} chat vs baseline</div>${spark(top.spark)}` : "")
+    + `<div class="sec">Clips per hour · last 12h</div>${bars(s.hours, s.passed_hours)}`;
+  h += `<div class="btns"><button id="bOpen">Open BURN-IN</button><button id="bPause">${s.manual_paused ? "Resume" : "Pause"}</button><button id="bSwap">Swap pet</button><button id="bHide">Hide</button></div>`;
+  $("#card").innerHTML = h;
+  $("#bOpen").onclick = () => api() && api().open_app();
+  $("#bPause").onclick = () => api() && api().toggle_pause();
+  $("#bHide").onclick = () => api() && api().hide();
+  $("#bSwap").onclick = () => { const ks = Object.keys(NAMES), n = ks[(ks.indexOf(cfg.species) + 1) % ks.length];
+    fetch(`/api/pet/species?k=${K}`, {method: "POST", headers: {"X-ClipBot": "1", "Content-Type": "application/json"}, body: JSON.stringify({species: n})}); };
+}
+
+/* ---------- boot ---------- */
+let bootTries = 0;
+async function boot() {
+  const a = api();
+  if (!a) { if (++bootTries === 25) report(`no pywebview bridge after 5 s (pywebview=${typeof window.pywebview})`); setTimeout(boot, 200); return; }
+  area = await a.area();
+  const r = await fetch(`/api/pet/state?k=${K}`).then(x => x.json());
+  cfg = r.pet; st = prev = r;
+  await loadSpecies(cfg.species);
+  document.documentElement.style.setProperty("--acc", cfg.custom_accent ? cfg.accent_color : ACCENT[cfg.species]);
+  pet.size = 40 * cfg.scale;
+  const p = r.place || {};
+  pet.x = clamp(p.x != null ? css(p.x) : css(area.w) - pet.size - 60, 0, css(area.w) - pet.size);
+  pet.y = clamp(p.y != null ? css(p.y) : floorY(), 0, floorY());
+  mood("hi", `${cfg.name || NAMES[cfg.species]} is here`, "post");
+  report(`booted (tries ${bootTries}): dpr ${DPR}, area ${JSON.stringify(area)}, at ${Math.round(pet.x)},${Math.round(pet.y)}, species ${cfg.species}, sprites ${manifest ? "yes" : "no"}`);
+  requestAnimationFrame(frame);
+  poll();
+}
+window.addEventListener("pywebviewready", boot);
+setTimeout(() => { if (!area) boot(); }, 1500);
+</script></body></html>

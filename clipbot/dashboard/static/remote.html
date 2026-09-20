@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BURN-IN Remote</title>
+<link rel="manifest" href="/static/remote.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BURN-IN">
+<meta name="theme-color" content="#070708">
+<link rel="apple-touch-icon" href="/static/art/mark.png">
+<link rel="icon" href="/static/art/mark-96.png">
+<style>
+/* The desk, shrunk to a hand: same sterling-on-black hardware, but everything you can touch is
+   at least 44px and the thumb does the reaching. */
+:root{
+  --base:#070708;--plate:#111114;--plate-2:#17181C;--plate-3:#24262C;
+  --line:rgba(226,231,240,.1);--line-2:rgba(226,231,240,.22);
+  --text:#F1F3F6;--muted:#9EA3AD;--faint:#646973;
+  --ember:#FF8A3D;--pass:#6FD39A;--reject:#E8605F;
+  --chrome:linear-gradient(180deg,#FFFFFF 0%,#DDE1E7 34%,#878C96 52%,#C7CCD4 68%,#F7F8FA 100%);
+  --head:'Bahnschrift Condensed','Bahnschrift','Helvetica Neue',system-ui,sans-serif;
+  --body:-apple-system,'Segoe UI',system-ui,sans-serif;
+  --mono:ui-monospace,'SF Mono',Consolas,monospace;
+  --rim:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.6),0 0 0 1px var(--line);
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--base);color-scheme:dark}
+body{margin:0;color:var(--text);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased;
+  padding:max(14px,env(safe-area-inset-top)) 14px calc(84px + env(safe-area-inset-bottom));
+  background:radial-gradient(120% 60% at 50% 0%,rgba(226,231,240,.06),transparent 60%),var(--base);
+  overscroll-behavior-y:contain}
+::selection{background:rgba(226,231,240,.3)}
+h1{margin:0;font:700 20px/1 var(--head);letter-spacing:.16em;text-transform:uppercase;
+  background:var(--chrome);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lab{font:700 10.5px/1.2 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+header img{width:32px;height:32px}
+header .sp{flex:1}
+.card{background:var(--plate);border-radius:12px;box-shadow:var(--rim);padding:14px;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px}
+.lamp{width:10px;height:10px;border-radius:50%;background:var(--faint);flex:none;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.25)}
+.lamp.on{background:var(--ember);box-shadow:0 0 0 3px rgba(255,138,61,.16),0 0 14px var(--ember)}
+.lamp.bad{background:var(--reject);box-shadow:0 0 12px var(--reject)}
+.state{font:700 12px/1 var(--head);letter-spacing:.14em;text-transform:uppercase}
+.track{height:7px;border-radius:2px;background:#050506;margin-top:10px;overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.8),0 0 0 1px var(--line)}
+.track i{display:block;height:100%;background:linear-gradient(90deg,#7A8697,#D7DCE4);transition:width .5s var(--ease)}
+.track i.hot{background:linear-gradient(90deg,#8E3A22,var(--ember))}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.kv div{min-width:0}
+.kv b{display:block;font:700 19px/1.1 var(--mono)}
+.kv span{display:block;font:600 9.5px/1.2 var(--head);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:2px}
+button{font:inherit;color:inherit}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:0 16px;
+  border:0;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0) 55%),var(--plate-3);
+  box-shadow:var(--rim);font:700 13px/1 var(--head);letter-spacing:.12em;text-transform:uppercase;
+  cursor:pointer;transition:transform .1s var(--ease),filter .14s}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.65)}
+.btn.primary{color:#0B0B0D;background:linear-gradient(180deg,#FFFFFF,#E3E7EE 40%,#A7ADB8 52%,#DDE1E8 66%,#FFFFFF);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 0 rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.35)}
+.btn[disabled]{opacity:.4}
+.btn.half{width:auto;flex:1}
+.pair{display:flex;gap:10px}
+.mon{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.mon:first-of-type{border-top:0}
+.mon img{width:86px;height:48px;object-fit:cover;border-radius:6px;background:#0A0B0D;flex:none;
+  box-shadow:inset 0 0 0 1px var(--line)}
+.mon .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mon .s{font:500 11.5px/1.4 var(--mono);color:var(--faint)}
+.clip{display:flex;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.clip:first-of-type{border-top:0}
+.clip .pic{width:46px;height:78px;border-radius:6px;background:#0A0B0D center/cover no-repeat;flex:none;
+  box-shadow:inset 0 0 0 1px var(--line)}
+.clip .t{flex:1;min-width:0}
+.clip .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip .t span{font:500 11.5px/1.4 var(--mono);color:var(--faint)}
+.tag{padding:3px 7px;border-radius:3px;font:700 9.5px/1.3 var(--head);letter-spacing:.12em;text-transform:uppercase;
+  box-shadow:inset 0 0 0 1px currentColor;color:var(--muted)}
+.tag.scheduled{color:var(--pass)}.tag.posted{color:var(--pass)}.tag.rejected{color:var(--reject)}
+.go{min-height:40px;padding:0 12px;border:0;border-radius:8px;background:var(--plate-3);box-shadow:var(--rim);
+  font:700 11px/1 var(--head);letter-spacing:.1em;text-transform:uppercase}
+.go:active{transform:translateY(1px)}
+.log{font:500 11.5px/1.7 var(--mono);color:var(--muted);white-space:pre-wrap;word-break:break-word;
+  max-height:240px;overflow:auto}
+.empty{color:var(--faint);text-align:center;padding:18px 0;font-size:13.5px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;gap:2px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  background:rgba(9,9,11,.92);backdrop-filter:blur(18px);box-shadow:0 -1px 0 var(--line)}
+nav button{flex:1;min-height:52px;border:0;background:none;color:var(--faint);border-radius:10px;
+  font:700 10px/1.3 var(--head);letter-spacing:.12em;text-transform:uppercase;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px}
+nav button[aria-selected=true]{color:var(--text);background:rgba(226,231,240,.09)}
+nav svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.view{display:none}.view.on{display:block;animation:in .22s var(--ease)}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.toast{position:fixed;left:14px;right:14px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:9;
+  padding:13px 15px;border-radius:10px;background:var(--plate-2);box-shadow:var(--rim);
+  font-size:13.5px;opacity:0;transform:translateY(10px);transition:.24s var(--ease);pointer-events:none}
+.toast.show{opacity:1;transform:none}
+.toast.bad{color:#FFC9C8}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body>
+<header>
+  <img src="/static/art/mark-96.png" alt="">
+  <h1>Burn-in</h1><div class="sp"></div>
+  <span class="lab" id="clock">—</span>
+</header>
+
+<section class="view on" id="v-deck">
+  <div class="card">
+    <div class="row"><i class="lamp" id="lamp"></i><span class="state" id="state">connecting</span>
+      <div class="sp" style="flex:1"></div><span class="lab" id="gpu">GPU —</span></div>
+    <div class="track"><i id="backlog" style="width:0"></i></div>
+    <div class="kv">
+      <div><b class="num" id="k-clips">—</b><span>clips</span></div>
+      <div><b class="num" id="k-posted">—</b><span>posted</span></div>
+      <div><b class="num" id="k-watch">—</b><span>watching</span></div>
+    </div>
+    <div class="pair" style="margin-top:14px">
+      <button class="btn half primary" id="pause">Pause</button>
+      <button class="btn half" id="refresh">Refresh</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="lab" style="margin-bottom:8px">On the radar</div>
+    <div id="mons"><div class="empty">Nothing live yet.</div></div>
+  </div>
+</section>
+
+<section class="view" id="v-clips">
+  <div class="card">
+    <div class="lab" style="margin-bottom:8px">Latest clips</div>
+    <div id="clips"><div class="empty">No clips yet.</div></div>
+  </div>
+</section>
+
+<section class="view" id="v-log">
+  <div class="card">
+    <div class="lab" style="margin-bottom:8px">What it has been doing</div>
+    <div class="log" id="log">—</div>
+  </div>
+  <div class="card">
+    <div class="lab" style="margin-bottom:8px">Trouble</div>
+    <div id="trouble"><div class="empty">Nothing wrong.</div></div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<nav>
+  <button aria-selected="true" data-v="deck"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/></svg>Desk</button>
+  <button data-v="clips"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 8h6M9 12h6"/></svg>Clips</button>
+  <button data-v="log"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Log</button>
+</nav>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const HDR = {"X-ClipBot": "1"};
+let paused = false, timer = null, view = "deck";
+
+function toast(msg, bad) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = "toast show" + (bad ? " bad" : "");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = "toast", 2600);
+}
+function ago(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return Math.round(s) + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  return Math.round(s / 3600) + "h ago";
+}
+async function get(url) {
+  const r = await fetch(url, {headers: HDR, credentials: "same-origin"});
+  if (r.status === 401) { location.href = "/"; throw new Error("signed out"); }
+  if (!r.ok) throw new Error(url + " " + r.status);
+  return r.json();
+}
+async function post(url, body) {
+  const r = await fetch(url, {method: "POST", credentials: "same-origin",
+    headers: {...HDR, "Content-Type": "application/json"}, body: body ? JSON.stringify(body) : "{}"});
+  if (r.status === 401) { location.href = "/"; throw new Error("signed out"); }
+  if (!r.ok) throw new Error((await r.text()).slice(0, 120) || ("HTTP " + r.status));
+  return r.json().catch(() => ({}));
+}
+
+function drawState(s) {
+  const c = s.counts || {}, fs = (s.backlog || {}).failsafe;
+  paused = !!s.manual_paused;
+  $("#lamp").className = "lamp " + (fs ? "bad" : (s.status === "running" && !paused ? "on" : ""));
+  $("#state").textContent = paused ? "paused" : (fs ? "failsafe — catching up" : (s.status || "—"));
+  $("#pause").textContent = paused ? "Resume" : "Pause";
+  $("#gpu").textContent = s.gpu ? `GPU ${Math.round(s.gpu.util)}%` : "GPU —";
+  const pct = Math.round(((s.backlog || {}).pressure || 0) * 100);
+  const bar = $("#backlog"); bar.style.width = Math.min(100, pct) + "%";
+  bar.className = pct > 70 ? "hot" : "";
+  $("#k-clips").textContent = c.clips ?? "—";
+  $("#k-posted").textContent = c.posted ?? "—";
+  $("#k-watch").textContent = c.watching ?? "—";
+  $("#clock").textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+
+  const streams = s.streams || [];
+  $("#mons").innerHTML = streams.length ? streams.slice(0, 12).map(m => `<div class="mon">
+      <img src="/api/monitor/thumb.jpg?key=${encodeURIComponent(m.key)}&t=${Date.now() >> 14}" alt="" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <div style="min-width:0;flex:1">
+        <div class="n">${esc(m.name)}</div>
+        <div class="s">${esc(m.category || "")} · ${Number(m.viewers || 0).toLocaleString()}</div>
+        <div class="s">chat ${esc(m.rate)}/s · z ${m.warm ? esc(m.z) : "warming"}</div>
+      </div></div>`).join("") : `<div class="empty">Nothing live yet.</div>`;
+
+  const tr = s.trouble || [];
+  $("#trouble").innerHTML = tr.length ? tr.map(t => `<div class="s" style="color:#FFC9C8;padding:4px 0">${esc(t)}</div>`).join("")
+    : `<div class="empty">Nothing wrong.</div>`;
+}
+
+async function drawClips() {
+  const list = await get("/api/clips");
+  const items = (list.clips || list || []).slice(0, 30);
+  $("#clips").innerHTML = items.length ? items.map(c => {
+    const v = c.verdict || {}, t = c.event?.target || {};
+    const can = c.stage === "scheduled";
+    return `<div class="clip">
+      <div class="pic" style="background-image:url('/media/${esc(c.id)}/poster.jpg')"></div>
+      <div class="t"><b>${esc(v.title || t.display_name || c.id)}</b>
+        <span>${esc(t.display_name || "")} · ${ago(c.created_at)}</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span class="tag ${esc(c.stage)}">${esc(c.stage)}</span>
+        ${can ? `<button class="go" data-pub="${esc(c.id)}">Post now</button>` : ""}
+      </div></div>`;
+  }).join("") : `<div class="empty">No clips yet.</div>`;
+  document.querySelectorAll("[data-pub]").forEach(b => b.onclick = async () => {
+    b.disabled = true; b.textContent = "…";
+    try { await post(`/api/clips/${b.dataset.pub}/publish`); toast("Posting started"); await drawClips(); }
+    catch (e) { toast(String(e.message || e), true); b.disabled = false; b.textContent = "Post now"; }
+  });
+}
+
+async function drawLog() {
+  const p = await get("/api/system/panel");
+  const ev = (p.events || []).slice(-60).map(e => `${e.time || ""} ${e.text || e.msg || ""}`.trim());
+  $("#log").textContent = ev.length ? ev.join("\n") : "Nothing logged yet.";
+}
+
+async function tick() {
+  try {
+    drawState(await get("/api/state"));
+    if (view === "clips") await drawClips();
+    if (view === "log") await drawLog();
+  } catch (e) { $("#state").textContent = "lost the PC"; $("#lamp").className = "lamp bad"; }
+  clearTimeout(timer); timer = setTimeout(tick, view === "deck" ? 2000 : 5000);
+}
+
+$("#pause").onclick = async () => {
+  const b = $("#pause"); b.disabled = true;
+  try { await post(paused ? "/api/control/resume" : "/api/control/pause"); toast(paused ? "Running" : "Paused"); }
+  catch (e) { toast(String(e.message || e), true); }
+  b.disabled = false; tick();
+};
+$("#refresh").onclick = () => { toast("Refreshed"); tick(); };
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  view = b.dataset.v;
+  document.querySelectorAll("nav button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + view));
+  tick();
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+tick();
+</script></body></html>

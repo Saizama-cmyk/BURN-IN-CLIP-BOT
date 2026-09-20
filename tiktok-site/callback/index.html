@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipBot – finishing sign-in</title>
+<style>
+  body{margin:0;background:#0F1B2D;color:#E8EDF2;font:16px/1.6 "Segoe UI",system-ui,sans-serif}
+  main{max-width:680px;margin:0 auto;padding:48px 20px}
+  h1{color:#F2A93B} code{display:block;background:#16263D;padding:10px;border-radius:6px;word-break:break-all;color:#4FC3D9}
+  p{color:#C9D4E2}
+</style>
+</head>
+<body>
+<main>
+  <h1>Sending you back to ClipBot…</h1>
+  <p>If nothing happens in a few seconds, copy the whole address below and paste it into ClipBot → Settings → Accounts → "TikTok didn't come back to ClipBot?".</p>
+  <code id="addr"></code>
+</main>
+<script>
+  // TikTok needs an https redirect, but ClipBot listens on this PC only.
+  // Hand the ?code=…&state=… straight to the local ClipBot (change 8787 if you changed its port).
+  document.getElementById("addr").textContent = location.href;
+  if (location.search.includes("code=") || location.search.includes("error=")) {
+    location.replace("http://127.0.0.1:8787/oauth/tiktok/callback" + location.search);
+  }
+</script>
+</body>
+</html>

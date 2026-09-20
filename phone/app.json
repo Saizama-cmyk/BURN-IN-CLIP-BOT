@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "BURN-IN",
+    "slug": "burn-in-remote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "burnin",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#070708",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070708"
+    },
+    "ios": {
+      "bundleIdentifier": "os.spike.burnin.remote",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "BURN-IN Remote talks to the BURN-IN app running on your PC over your local network.",
+        "UIBackgroundModes": []
+      }
+    },
+    "android": {
+      "package": "os.spike.burnin.remote",
+      "usesCleartextTraffic": true
+    }
+  }
+}

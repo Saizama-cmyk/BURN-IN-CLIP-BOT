@@ -1,0 +1,107 @@
+{
+ "blip": {
+  "frame": 320,
+  "actions": {
+   "cheer": 12,
+   "dance": 24,
+   "fall": 4,
+   "held": 8,
+   "hop": 10,
+   "idle": 24,
+   "land": 6,
+   "look": 12,
+   "love": 10,
+   "sad": 12,
+   "sleep": 24,
+   "spin": 18,
+   "stretch": 18,
+   "surprised": 8,
+   "walk": 18,
+   "wave": 12
+  }
+ },
+ "ember": {
+  "frame": 320,
+  "actions": {
+   "cheer": 12,
+   "dance": 24,
+   "fall": 4,
+   "held": 8,
+   "hop": 10,
+   "idle": 24,
+   "land": 6,
+   "look": 12,
+   "love": 10,
+   "sad": 12,
+   "sleep": 24,
+   "spin": 18,
+   "stretch": 18,
+   "surprised": 8,
+   "walk": 18,
+   "wave": 12
+  }
+ },
+ "glitch": {
+  "frame": 320,
+  "actions": {
+   "cheer": 12,
+   "dance": 24,
+   "fall": 4,
+   "held": 8,
+   "hop": 10,
+   "idle": 24,
+   "land": 6,
+   "look": 12,
+   "love": 10,
+   "sad": 12,
+   "sleep": 24,
+   "spin": 18,
+   "stretch": 18,
+   "surprised": 8,
+   "walk": 18,
+   "wave": 12
+  }
+ },
+ "moss": {
+  "frame": 320,
+  "actions": {
+   "cheer": 12,
+   "dance": 24,
+   "fall": 4,
+   "held": 8,
+   "hop": 10,
+   "idle": 24,
+   "land": 6,
+   "look": 12,
+   "love": 10,
+   "sad": 12,
+   "sleep": 24,
+   "spin": 18,
+   "stretch": 18,
+   "surprised": 8,
+   "walk": 18,
+   "wave": 12
+  }
+ },
+ "nib": {
+  "frame": 320,
+  "actions": {
+   "cheer": 12,
+   "dance": 24,
+   "fall": 4,
+   "held": 8,
+   "hop": 10,
+   "idle": 24,
+   "land": 6,
+   "look": 12,
+   "love": 10,
+   "sad": 12,
+   "sleep": 24,
+   "spin": 18,
+   "stretch": 18,
+   "surprised": 8,
+   "walk": 18,
+   "wave": 12
+  }
+ }
+}

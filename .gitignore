@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+art/out/
+art/out_pets/
+art/out_icons/
+art/out_ui/
+installer/version_info.txt
+installer/version.txt
+*.log
+.pytest_cache/
+
+# phone app build junk
+phone/node_modules/
+phone/ios/
+phone/android/
+phone/.expo/

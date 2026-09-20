@@ -1,0 +1,74 @@
+# Builds BURN-IN Remote as an unsigned .ipa on a free GitHub macOS runner.
+#
+# Apple's toolchain only runs on macOS, so this is how the app gets built without owning a Mac.
+# The .ipa is unsigned on purpose: AltStore / SideStore signs it with your own Apple ID when you
+# install it, which is what makes sideloading work without a paid developer account.
+#
+# Run it from the repo's Actions tab ("Run workflow"), then download the artifact.
+name: Phone app (.ipa)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "phone/**"
+      - ".github/workflows/phone-ipa.yml"
+
+jobs:
+  ipa:
+    runs-on: macos-14
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: phone
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate the native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Install CocoaPods
+        run: pod install
+        working-directory: phone/ios
+
+      - name: Build without code signing
+        working-directory: phone/ios
+        run: |
+          SCHEME=$(xcodebuild -list -json | python3 -c "import json,sys;print(json.load(sys.stdin)['workspace']['schemes'][0])")
+          echo "Building scheme $SCHEME"
+          xcodebuild \
+            -workspace *.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Wrap the app into an .ipa
+        working-directory: phone/ios
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP" || { echo "no .app was produced"; exit 1; }
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry BURN-IN-Remote.ipa Payload
+          ls -lh BURN-IN-Remote.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BURN-IN-Remote-ipa
+          path: phone/ios/BURN-IN-Remote.ipa
+          if-no-files-found: error
+          retention-days: 30
