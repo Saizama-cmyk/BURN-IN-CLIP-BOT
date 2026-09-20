@@ -32,7 +32,10 @@ MIN_IOS = "15.1"
 
 
 def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
-    version = tag.lstrip("vV") or __version__
+    # tags look like "phone-v1.0.5"; sideloaders compare plain numbers, so hand them just that
+    version = tag.split("-v")[-1].lstrip("vV") if tag else __version__
+    if not version[:1].isdigit():
+        version = __version__
     return {
         "name": f"{PRODUCT} Remote",
         "identifier": "os.spike.burnin",
