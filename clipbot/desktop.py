@@ -296,8 +296,19 @@ class PetBridge:
         self._desktop.show_window()
 
     def hit(self, x: float, y: float, w: float, h: float) -> None:
-        """Where the pet (plus its open card) is on screen, in physical pixels."""
-        self._desktop.set_pet_hit((int(x), int(y), int(w), int(h)))
+        """Where the pet (plus its open card) is, in page pixels; converted to screen here."""
+        ox, oy = self._client_origin()
+        self._desktop.set_pet_hit((int(x) + ox, int(y) + oy, int(w), int(h)))
+
+    def _client_origin(self) -> tuple[int, int]:
+        """Screen position of the page's top-left corner (the client area, not the window)."""
+        hwnd = self._desktop.pet_hwnd()
+        if not hwnd:
+            return (0, 0)
+        pt = ctypes.wintypes.POINT(0, 0)
+        if not ctypes.windll.user32.ClientToScreen(hwnd, ctypes.byref(pt)):
+            return (0, 0)
+        return (pt.x, pt.y)
 
     def interactive(self, on: bool) -> None:
         """The page opened or closed its hover card; the window stays see-through either way."""

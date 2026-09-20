@@ -75,7 +75,8 @@ function play(act, hold) {
   action = act; fi = 0; busy = hold || 0;
 }
 const cv = $("#pet"), cx = cv.getContext("2d");
-function floorY() { return css(area.h) - pet.size; }
+function floorY() { return window.innerHeight - pet.size; }      // the real page, not the window rect
+function rightX() { return window.innerWidth - pet.size; }
 
 /* one 60 fps loop: sprite clock, physics, walking, and the transform that draws it all */
 let acc = 0, last = performance.now();
@@ -101,6 +102,11 @@ function frame(now) {
   placeBubbles();
   reportHit();
 }
+window.addEventListener("resize", () => {
+  if (!cfg) return;
+  pet.x = clamp(pet.x, 0, rightX());
+  pet.y = clamp(pet.y, 0, floorY());
+});
 function life(dt) {
   if (pet.y < floorY() - 0.5 && cfg.gravity) {                  // falling
     pet.vy += cfg.fall_px_s2 * dt; play("fall");
@@ -123,8 +129,8 @@ function life(dt) {
   if (Math.random() < dt * 0.25 * (0.3 + cfg.activity * 1.7)) {  // spontaneous antics
     const r = Math.random();
     if (cfg.wander && r < 0.45) {
-      const span = Math.min(420, css(area.w) / 3);
-      pet.walkTo = clamp(pet.x + (Math.random() * 2 - 1) * span, 0, css(area.w) - pet.size);
+      const span = Math.min(420, window.innerWidth / 3);
+      pet.walkTo = clamp(pet.x + (Math.random() * 2 - 1) * span, 0, rightX());
       facing = pet.walkTo > pet.x ? 1 : -1; play("walk");
     } else play(["look", "hop", "spin", "wave", "dance", "stretch"][Math.floor(Math.random() * 6)], 1);
   }
@@ -154,9 +160,9 @@ function placeBubbles() {
   m.style.transform = `translate3d(${(midX - m.offsetWidth / 2).toFixed(1)}px,${(pet.y - m.offsetHeight - 10).toFixed(1)}px,0)`;
   if (hover) {
     const w = cardEl.offsetWidth, h = cardEl.offsetHeight;
-    const x = clamp(midX - w / 2, 8, css(area.w) - w - 8);
+    const x = clamp(midX - w / 2, 8, window.innerWidth - w - 8);
     const above = pet.y - h - 12;
-    cardEl.style.transform = `translate3d(${x.toFixed(1)}px,${(above > 8 ? above : Math.min(pet.y + pet.size + 12, css(area.h) - h - 8)).toFixed(1)}px,0)`;
+    cardEl.style.transform = `translate3d(${x.toFixed(1)}px,${(above > 8 ? above : Math.min(pet.y + pet.size + 12, window.innerHeight - h - 8)).toFixed(1)}px,0)`;
   }
 }
 /* Python needs to know where we are: colour-keyed windows get no mouse messages at all */
@@ -169,7 +175,7 @@ function reportHit() {
   }
   const x0 = Math.min(...parts.map(r => r[0])), y0 = Math.min(...parts.map(r => r[1]));
   const x1 = Math.max(...parts.map(r => r[0] + r[2])), y1 = Math.max(...parts.map(r => r[1] + r[3]));
-  const hit = [area.x + x0 * DPR, area.y + y0 * DPR, (x1 - x0) * DPR, (y1 - y0) * DPR].map(Math.round);
+  const hit = [x0 * DPR, y0 * DPR, (x1 - x0) * DPR, (y1 - y0) * DPR].map(Math.round);
   const key = hit.join();
   if (key !== lastHit) { lastHit = key; const a = api(); if (a) a.hit(...hit); }
 }
@@ -230,7 +236,7 @@ window.PetIn = {
   grab(sx, sy) { dragging = {dx: css(sx - area.x) - pet.x, dy: css(sy - area.y) - pet.y}; play("held"); },
   drag(sx, sy) {
     if (!dragging) return;
-    pet.x = clamp(css(sx - area.x) - dragging.dx, 0, css(area.w) - pet.size);
+    pet.x = clamp(css(sx - area.x) - dragging.dx, 0, rightX());
     pet.y = clamp(css(sy - area.y) - dragging.dy, 0, floorY());
     pet.walkTo = null; pet.vy = 0;
   },
@@ -312,7 +318,7 @@ async function boot() {
   document.documentElement.style.setProperty("--acc", cfg.custom_accent ? cfg.accent_color : ACCENT[cfg.species]);
   pet.size = 40 * cfg.scale;
   const p = r.place || {};
-  pet.x = clamp(p.x != null ? css(p.x) : css(area.w) - pet.size - 60, 0, css(area.w) - pet.size);
+  pet.x = clamp(p.x != null ? css(p.x) : rightX() - 60, 0, rightX());
   pet.y = clamp(p.y != null ? css(p.y) : floorY(), 0, floorY());
   mood("hi", `${cfg.name || NAMES[cfg.species]} is here`, "post");
   report(`booted (tries ${bootTries}): dpr ${DPR}, area ${JSON.stringify(area)}, at ${Math.round(pet.x)},${Math.round(pet.y)}, species ${cfg.species}, sprites ${manifest ? "yes" : "no"}`);
