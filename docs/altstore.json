@@ -20,11 +20,11 @@
       ],
       "versions": [
         {
-          "version": "phone-v1.0.0",
+          "version": "phone-v1.0.0.5",
           "date": "2026-09-20",
-          "localizedDescription": "BURN-IN phone-v1.0.0.",
+          "localizedDescription": "BURN-IN phone-v1.0.0.5.",
           "downloadURL": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/download/phone-latest/BURN-IN-Remote.ipa",
-          "size": 12345678,
+          "size": 7382916,
           "minOSVersion": "15.1"
         }
       ]
