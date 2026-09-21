@@ -47,6 +47,7 @@ WelcomeLabel2=BURN-IN watches the biggest live streams, catches the moments chat
 Name: "desktopicon"; Description: "Put a BURN-IN shortcut on the desktop"; GroupDescription: "Shortcuts:"
 Name: "ffmpeg"; Description: "Install ffmpeg (required, free) with winget"; GroupDescription: "Set up what BURN-IN needs:"; Check: NeedsFfmpeg
 Name: "ollama"; Description: "Install Ollama (required for the AI, free) with winget"; GroupDescription: "Set up what BURN-IN needs:"; Check: NeedsOllama
+Name: "firewall"; Description: "Let your phone reach BURN-IN on your home network (port 8787)"; GroupDescription: "Set up what BURN-IN needs:"; Flags: unchecked
 
 [InstallDelete]
 ; the older install.bat layout
@@ -59,6 +60,7 @@ Type: files; Name: "{group}\Uninstall ClipBot.lnk"
 
 [Files]
 Source: "..\dist\BurnIn\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "allow-phone-remote.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\BURN-IN"; Filename: "{app}\BurnIn.exe"; Comment: "BURN-IN"
@@ -72,6 +74,9 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 [Run]
 Filename: "winget"; Parameters: "install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements --silent"; StatusMsg: "Installing ffmpeg…"; Flags: runhidden waituntilterminated; Tasks: ffmpeg
 Filename: "winget"; Parameters: "install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent"; StatusMsg: "Installing Ollama…"; Flags: runhidden waituntilterminated; Tasks: ollama
+; the firewall rule needs administrator rights, so this one asks for them on its own
+Filename: "{sys}
+etsh.exe"; Parameters: "advfirewall firewall add rule name=""BURN-IN phone remote"" dir=in action=allow protocol=TCP localport=8787 profile=private,domain"; StatusMsg: "Allowing the phone remote through the firewall…"; Flags: shellexec runhidden waituntilterminated; Verb: runas; Tasks: firewall
 Filename: "{app}\BurnIn.exe"; Description: "Start BURN-IN"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\BurnIn.exe"; Flags: nowait; Check: WizardSilent
 

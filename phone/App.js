@@ -27,11 +27,21 @@ const POLL_MS = 2500, TIMEOUT_MS = 6000, CLIP_LIMIT = 30, MON_LIMIT = 12, DEFAUL
 const RELEASE_API = "https://api.github.com/repos/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tags/phone-latest";
 const RELEASE_PAGE = "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tag/phone-latest";
 
-/** "http://192.168.0.72/" and "192.168.0.72" both mean 192.168.0.72:8787. */
-function cleanHost(raw) {
-  const bare = String(raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+/**
+ * Turns whatever was typed into a base URL.
+ *   192.168.0.72          -> http://192.168.0.72:8787      (home address: plain http is fine)
+ *   msi.tailnet.ts.net    -> https://msi.tailnet.ts.net    (Tailscale serves it with a real cert)
+ *   https://host:9000     -> kept as written
+ */
+function baseUrl(raw) {
+  const text = String(raw || "").trim().replace(/\/+$/, "");
+  if (!text) return "";
+  const explicit = /^https?:\/\//i.test(text);
+  const bare = text.replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
   if (!bare) return "";
-  return bare.includes(":") ? bare : `${bare}:${DEFAULT_PORT}`;
+  if (explicit) return text.replace(/\/.*$/, "");
+  if (/\.ts\.net$/i.test(bare)) return `https://${bare}`;      // Tailscale name: https, port 443
+  return `http://${bare.includes(":") ? bare : `${bare}:${DEFAULT_PORT}`}`;
 }
 
 /* ------------------------------------------------------------------ api */
@@ -39,7 +49,7 @@ async function call(host, path, { token, method = "GET", body } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`http://${host}${path}`, {
+    const res = await fetch(`${host}${path}`, {
       method,
       signal: ctrl.signal,
       headers: {
@@ -117,7 +127,7 @@ function Pet({ host, state }) {
 
   useEffect(() => {
     let alive = true;
-    fetch(`http://${host}/static/pets/manifest.json`)
+    fetch(`${host}/static/pets/manifest.json`)
       .then(r => r.json())
       .then(m => { if (alive) setManifest(m[species] || null); })
       .catch(() => {});
@@ -140,7 +150,7 @@ function Pet({ host, state }) {
     <View style={s.petBox} accessibilityLabel={`Blip is ${action}`}>
       <View style={{ width: PET_BOX, height: PET_BOX, overflow: "hidden" }}>
         <Image
-          source={{ uri: `http://${host}/static/pets/${species}/${action}.png` }}
+          source={{ uri: `${host}/static/pets/${species}/${action}.png` }}
           style={{
             width: manifest.frame * count * scale,
             height: PET_BOX,
@@ -174,7 +184,7 @@ function SignIn({ onDone }) {
 
   // ask the PC which accounts exist, so you sign in as a specific one (names are unique there)
   const lookUp = useCallback(async (raw) => {
-    const clean = cleanHost(raw);
+    const clean = baseUrl(raw);
     if (!clean.includes(".")) return;
     try {
       const r = await call(clean, "/api/auth/status");
@@ -187,7 +197,7 @@ function SignIn({ onDone }) {
   }, []);
 
   const go = async () => {
-    const clean = cleanHost(host);
+    const clean = baseUrl(host);
     if (!clean) return setError("Type the address shown in BURN-IN on your PC.");
     setBusy(true); setError("");
     try {
@@ -202,7 +212,7 @@ function SignIn({ onDone }) {
         onDone(clean, r.data.token);
       }
     } catch (e) {
-      setError(`No answer from ${clean}. Check: BURN-IN is running on the PC, `
+      setError(`No answer from ${clean.replace(/^https?:\/\//, "")}. Check: BURN-IN is running, `
         + "Settings - Dashboard - Phone remote is on, and this phone is on the same Wi-Fi "
         + "(or both are signed into Tailscale).");
     }
@@ -218,7 +228,7 @@ function SignIn({ onDone }) {
         <Text style={s.label}>PC address</Text>
         <TextInput
           value={host} onChangeText={setHost} onBlur={() => lookUp(host)}
-          placeholder="192.168.0.72:8787"
+          placeholder="192.168.0.72:8787 or name.ts.net"
           placeholderTextColor={C.faint} autoCapitalize="none" autoCorrect={false}
           keyboardType="numbers-and-punctuation" style={s.input}
         />
