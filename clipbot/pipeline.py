@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import datetime
 import logging
 import shutil
 import time
@@ -50,6 +51,7 @@ from .safety import Filter
 
 logger = logging.getLogger("clipbot.pipeline")
 RAW_SUFFIX = ".mp4"       # the source cut; everything else in work/ is scratch
+UNFINISHED = ("queued", "qc", "transcribe", "clipability", "edit")
 SWEEP_IDLE_S = 300.0      # nothing to do: look again in five minutes
 
 GIB = 1024 * 1024 * 1024
@@ -204,6 +206,7 @@ class Pipeline:
         loop.create_task(self._ai_limit.set_limit(s.workers.ai_stage))
         if (old.twitch, old.kick, old.discovery) != (s.twitch, s.kick, s.discovery):
             self._discovery_wake.set()
+        loop.create_task(self._abandon_stale())
         loop.create_task(self._refresh_failsafe())
         self._tasks.append(loop.create_task(self._sweep_loop(), name="sweeper"))
 
@@ -451,6 +454,17 @@ class Pipeline:
         """Buffer folder names for the streams being watched right now."""
         return {safe_name(key) for key in self.targets}
 
+    async def _abandon_stale(self) -> None:
+        """Written off at startup: their buffered video is long gone, so they can never finish."""
+        hours = self.settings.clip.abandon_after_h
+        cutoff = (datetime.datetime.now(datetime.timezone.utc)
+                  - datetime.timedelta(hours=hours)).isoformat()
+        dropped = await asyncio.to_thread(
+            self.store.abandon_stale, UNFINISHED, cutoff,
+            f"given up: still unfinished after {hours:g}h, and the buffer it came from is gone")
+        if dropped:
+            logger.info("cleared %d clip(s) that could never finish", dropped)
+
     async def _sweep_loop(self) -> None:
         """Clear out work files and dead buffers on a timer, so space never gets tight."""
         while True:
@@ -531,36 +545,16 @@ class Pipeline:
             # one clip at a time through vision + judge + writer: frames are grabbed only when it's
             # this clip's turn (a restart with a big backlog used to launch hundreds of ffmpegs)
             async with self._ai_limit:
-                await self._save(c, Stage.CLIPABILITY)
-                while True:
-                    if s.ai.vision_enabled and not c.visual:
-                        seen = await self.vision.describe(
-                            Path(c.raw_path), duration, c.event.t_wall - c.start_wall,
-                            c.event.target.display_name, c.event.target.category,
-                            save_dir=frames_dir(self.paths, c.id))
-                        c.visual, c.frame_times = seen.text, seen.times or []
-                    imported = c.source.get("type") == "twitch_clip"
-                    if imported and not s.clip_import.judge:
-                        verdict = {"verdict": "pass", "category": "moment", "score": SCORE_MAX,
-                                   "reason": "popular Twitch clip (judging off for imports)",
-                                   "title": c.event.target.title, "caption": "", "hashtags": [],
-                                   "trim_start": 0.0, "trim_end": duration, "passed": True}
-                        break
-                    try:
-                        verdict = await self.clipability.judge(
-                            c, duration, s.clip_import.min_score if imported else None)
-                        break
-                    except AIUnavailable as exc:
-                        c.error = f"waiting for Ollama: {exc}"
-                        await self._save(c)
-                        await asyncio.sleep(self.settings.ai.unavailable_retry_s)
-                verdict = await self._second_look(c, verdict, duration)
-                c.verdict, c.error = verdict, ""
-                if not verdict["passed"]:
-                    await self._finish(c, Stage.REJECTED, f"{verdict['category']}: {verdict['reason']}")
+                try:
+                    await asyncio.wait_for(self._think(c, duration),
+                                           timeout=s.ai.stage_deadline_s)
+                except asyncio.TimeoutError:
+                    await self._finish(c, Stage.REJECTED,
+                                       "gave up: the AI stage passed its deadline, so the "
+                                       "queue moved on")
                     return
-
-                c.post_copy = await self.copywriter.write(c, self.analytics.notes(), Path(c.raw_path))
+                if not c.verdict or not c.verdict.get("passed"):
+                    return                       # _think already recorded why
             await self._save(c, Stage.EDIT)
             out = clips_target(self.settings, self.paths) / f"{c.event.target.login}_{c.id}.mp4"
             facecam = await self._auto_facecam(c)
@@ -581,6 +575,43 @@ class Pipeline:
         except (AssembleError, RenderError, CmdTimeout, OSError, RuntimeError, ValueError) as exc:
             logger.warning("candidate %s failed: %s", c.id, exc)
             await self._finish(c, Stage.FAILED, str(exc) or type(exc).__name__)
+
+    async def _think(self, c: Candidate, duration: float) -> None:
+        """Watch, judge and write one clip.
+
+        Only one clip is in here at a time, so the caller holds it to a deadline: a clip that
+        hangs must not stop every other clip behind it."""
+        s = self.settings
+        await self._save(c, Stage.CLIPABILITY)
+        while True:
+            if s.ai.vision_enabled and not c.visual:
+                seen = await self.vision.describe(
+                    Path(c.raw_path), duration, c.event.t_wall - c.start_wall,
+                    c.event.target.display_name, c.event.target.category,
+                    save_dir=frames_dir(self.paths, c.id))
+                c.visual, c.frame_times = seen.text, seen.times or []
+            imported = c.source.get("type") == "twitch_clip"
+            if imported and not s.clip_import.judge:
+                verdict = {"verdict": "pass", "category": "moment", "score": SCORE_MAX,
+                           "reason": "popular Twitch clip (judging off for imports)",
+                           "title": c.event.target.title, "caption": "", "hashtags": [],
+                           "trim_start": 0.0, "trim_end": duration, "passed": True}
+                break
+            try:
+                verdict = await self.clipability.judge(
+                    c, duration, s.clip_import.min_score if imported else None)
+                break
+            except AIUnavailable as exc:
+                c.error = f"waiting for Ollama: {exc}"
+                await self._save(c)
+                await asyncio.sleep(self.settings.ai.unavailable_retry_s)
+        verdict = await self._second_look(c, verdict, duration)
+        c.verdict, c.error = verdict, ""
+        if not verdict["passed"]:
+            await self._finish(c, Stage.REJECTED, f"{verdict['category']}: {verdict['reason']}")
+            return
+
+        c.post_copy = await self.copywriter.write(c, self.analytics.notes(), Path(c.raw_path))
 
     async def _second_look(self, c, verdict: dict, duration: float) -> dict:
         """A near-miss is worth a second opinion: look at more frames and judge once more.

@@ -384,6 +384,11 @@ class ClipCfg(Section):
     qc_min_duration_ratio: float = F(0.8, "QC min duration ratio",
                                      "Cut must be at least this share of the requested length.", ge=0.1, le=1)
     qc_black_min_s: float = F(0.5, "QC black run (s)", "Shortest black run blackdetect counts.", ge=0.05, le=10)
+    abandon_after_h: float = F(1.0, "Give up on unfinished cuts after (h)", "A cut that never "
+                               "made it through the AI is written off once it is this old: the "
+                               "buffered video it came from is long gone, so it can never finish, "
+                               "and leaving it in the queue is what keeps the failsafe on.",
+                               ge=0.1, le=72)
     keep_rejected_hours: float = F(24.0, "Keep rejected cuts (h)",
                                    "Rejected/failed cuts stay watchable this long, then are deleted (0 = delete at once).",
                                    ge=0, le=720)
@@ -497,6 +502,14 @@ class AICfg(Section):
     min_score: int = F(6, "Minimum score", "Clips scoring below this are rejected even if the model says pass.",
                        ge=0, le=10)
     timeout_s: int = F(180, "Timeout (s)", "Give up on one model call after this long.", ge=10, le=1800)
+    first_try_timeout_s: int = F(70, "First try timeout (s)", "A healthy call answers well inside "
+                                 "this. Cutting the first attempt short means a stuck clip stops "
+                                 "holding up the queue; the retry gets the full timeout.",
+                                 ge=10, le=1800)
+    stage_deadline_s: float = F(240.0, "Give up on a clip after (s)", "Longest the whole AI stage "
+                                "may spend on one clip - watching, judging and writing together. "
+                                "Past this it is dropped and the next clip starts.",
+                                ge=30, le=3600)
     keep_alive: str = F("30m", "Keep model loaded", "Ollama keep_alive (e.g. 30m, 1h, -1 = forever).")
     num_ctx: int = F(8192, "Context size", "Tokens of context requested from Ollama.", ge=1024, le=262144)
     retries: int = F(1, "Retries on bad JSON", "Extra attempts before rejecting as model_error.", ge=0, le=5)
@@ -513,9 +526,9 @@ class AICfg(Section):
     vision_model: str = F("qwen3-vl:8b-instruct", "Vision model",
                           "Ollama vision model that describes the frames (qwen3-vl:4b is lighter).",
                           widget="ollama_models")
-    vision_frames: int = F(6, "Frames per clip", "Frames sent to the vision model, spread over the clip.",
+    vision_frames: int = F(4, "Frames per clip", "Frames sent to the vision model, spread over the clip.",
                            ge=1, le=16)
-    vision_frame_width: int = F(640, "Frame width (px)", "Frames are scaled to this width before sending.",
+    vision_frame_width: int = F(512, "Frame width (px)", "Frames are scaled to this width before sending.",
                                 ge=128, le=1920)
     vision_jpeg_quality: int = F(4, "Frame JPEG quality", "ffmpeg -q:v for frames (2 = best, 31 = smallest).",
                                  ge=2, le=31)
@@ -523,7 +536,7 @@ class AICfg(Section):
                             "Tokens for frames + answer (each 640px frame costs ~1,000).",
                             ge=4096, le=131072)
     vision_temperature: float = F(0.2, "Vision temperature", "Lower = more literal descriptions.", ge=0, le=2)
-    vision_keep_alive: str = F("5m", "Keep vision model loaded",
+    vision_keep_alive: str = F("30m", "Keep vision model loaded",
                                "Ollama keep_alive for the vision model (it shares the GPU with the judge).")
     auto_pull: bool = F(True, "Download missing models", "On start, download the Ollama models the "
                         "judge profile needs if they aren't installed yet (first-run setup).")
@@ -582,7 +595,7 @@ class AICfg(Section):
                               ge=10, le=900)
     chat_temperature: float = F(0.7, "Assistant temperature", "Higher is more playful, lower is "
                                 "more literal.", ge=0, le=2)
-    second_look: bool = F(True, "Second look at near-misses", "A candidate that lands just under "
+    second_look: bool = F(False, "Second look at near-misses", "A candidate that lands just under "
                           "the pass mark is judged again with more frames to look at, instead of "
                           "being thrown away. This is what stops good clips slipping through.")
     second_look_margin: float = F(1.5, "Near-miss margin", "How far below the pass mark still "

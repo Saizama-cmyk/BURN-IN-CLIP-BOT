@@ -189,7 +189,7 @@ class Clipability:
     def model(self) -> str:
         return self.plan().judge_model
 
-    async def _chat(self, messages: list[dict]) -> str:
+    async def _chat(self, messages: list[dict], patience: float | None = None) -> str:
         ai = self.settings.ai
         one = self.one_model()
         body = {"model": self.model(), "messages": messages, "format": "json", "stream": False,
@@ -201,11 +201,11 @@ class Clipability:
             if ai.vision_disable_thinking:
                 body["think"] = False
         try:
-            r = await self.http.post(f"{self.base}/api/chat", json=body, timeout=ai.timeout_s)
+            r = await self.http.post(f"{self.base}/api/chat", json=body, timeout=patience or ai.timeout_s)
         except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             raise AIUnavailable(f"Ollama not reachable at {self.base}: {exc}") from exc
         except httpx.TimeoutException as exc:
-            raise BadModelOutput(f"model timed out after {ai.timeout_s}s") from exc
+            raise BadModelOutput(f"model timed out after {patience or ai.timeout_s:.0f}s") from exc
         if r.status_code == 404:
             raise AIUnavailable(f"model {self.model()!r} not found in Ollama: {r.text[:ERR_SNIPPET]}")
         if r.status_code >= 500:
@@ -234,7 +234,10 @@ class Clipability:
                 last_err = ""
                 for attempt in range(s.ai.retries + 1):
                     try:
-                        text = await self._chat(messages)
+                        # first attempt on a short leash: a model that has not answered by then
+                        # is stuck, and every other clip is waiting behind this one
+                        patience = (s.ai.first_try_timeout_s if attempt == 0 else s.ai.timeout_s)
+                        text = await self._chat(messages, patience)
                         verdict = parse_verdict(text, duration, s, min_score)
                         self.last_error = ""
                         return verdict
