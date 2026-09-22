@@ -23,6 +23,9 @@
         },
         "NSLocalNetworkUsageDescription": "BURN-IN Remote talks to the BURN-IN app running on your PC over your local network.",
         "UIBackgroundModes": []
+      },
+      "entitlements": {
+        "com.apple.developer.kernel.increased-memory-limit": true
       }
     },
     "android": {
@@ -34,7 +37,11 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.25"
+            "kotlinVersion": "1.9.25",
+            "minSdkVersion": 26
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ]

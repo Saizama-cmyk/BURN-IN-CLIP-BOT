@@ -13,6 +13,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import { deviceProfile, download, freeBytes, isDownloaded, load, pickModel, reply }
+  from "./localAi";
 
 /* ------------------------------------------------------------------ the look: sterling on black */
 const C = {
@@ -553,12 +555,53 @@ function SettingsTab({ host, token, onError, toast }) {
   );
 }
 
-/* ------------------------------------------------------------------ assistant */
+/* ------------------------------------------------------------------ assistant
+   Runs on the phone. The device is measured once and the best model it can host is chosen for
+   it - nothing to pick. The PC's much larger model stays available as a fallback for phones
+   that cannot host one, or when you want the better answer. */
 function Assistant({ host, token, onError }) {
+  const [profile] = useState(() => deviceProfile());
+  const [model, setModel] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState(-1);
+  const [onPhone, setOnPhone] = useState(true);
   const [turns, setTurns] = useState([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const context = useRef(null);
   const scroller = useRef(null);
+
+  // measure the device, choose for it, and load the weights if they are already here
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const free = await freeBytes();
+      const best = pickModel(profile, free);
+      if (!alive) return;
+      setModel(best);
+      if (!best) { setOnPhone(false); return; }
+      if (await isDownloaded(best)) {
+        try {
+          context.current = await load(best);
+          if (alive) setReady(true);
+        } catch (e) { if (alive) setProblem(`Could not load ${best.name}: ${e.message}`); }
+      }
+    })();
+    return () => { alive = false; };
+  }, [profile]);
+
+  const fetchWeights = async () => {
+    setProgress(0); setProblem("");
+    try {
+      await download(model, setProgress);
+      context.current = await load(model);
+      setReady(true);
+    } catch (e) {
+      setProblem(`Download failed: ${e.message}`);
+    }
+    setProgress(-1);
+  };
 
   const send = async () => {
     const text = draft.trim();
@@ -566,32 +609,87 @@ function Assistant({ host, token, onError }) {
     const next = [...turns, { role: "user", content: text }];
     setTurns(next); setDraft(""); setBusy(true);
     try {
-      const r = await call(host, "/api/chat", {
-        token, method: "POST", body: { messages: next }, timeout: CHAT_TIMEOUT_MS,
-      });
-      setTurns([...next, { role: "assistant", content: r.ok
-        ? (r.data.reply || "(the model said nothing)")
-        : (r.data.error || `The PC answered ${r.status}.`) }]);
+      if (onPhone && ready && context.current) {
+        const answer = await reply(context.current, next);
+        setTurns([...next, { role: "assistant", content: answer || "(no answer)" }]);
+      } else {
+        const r = await call(host, "/api/chat", {
+          token, method: "POST", body: { messages: next }, timeout: CHAT_TIMEOUT_MS,
+        });
+        setTurns([...next, { role: "assistant", content: r.ok
+          ? (r.data.reply || "(the model said nothing)")
+          : (r.data.error || `The PC answered ${r.status}.`) }]);
+      }
     } catch (e) {
-      setTurns([...next, { role: "assistant", content: "No answer from the PC. Is it awake?" }]);
-      onError();
+      setTurns([...next, { role: "assistant", content: `That did not work: ${e.message}` }]);
+      if (!onPhone) onError();
     }
     setBusy(false);
   };
 
+  const gb = (n) => `${n.toFixed(1)} GB`;
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
       <ScrollView ref={scroller} contentContainerStyle={{ padding: 14, paddingBottom: 8 }}
         onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
+
         {turns.length === 0 && (
           <Plate>
-            <Text style={[s.label, { marginBottom: 8 }]}>Local assistant</Text>
+            <Text style={[s.label, { marginBottom: 8 }]}>On this phone</Text>
             <Text style={s.help}>
-              This talks to the model already loaded on your PC for judging clips. Nothing leaves
-              your network, there is no account, and it costs no extra memory.
+              {profile.name} · {gb(profile.totalGb)} memory · {profile.os}
             </Text>
+            {model ? (
+              <>
+                <Text style={[s.monName, { marginTop: 10 }]}>{model.name}</Text>
+                <Text style={s.help}>
+                  {model.blurb} Chosen because this phone can give an app about {gb(profile.usableGb)},
+                  and this one needs {gb(model.needsGb)}.
+                </Text>
+                {!ready && progress < 0 && (
+                  <View style={{ marginTop: 12 }}>
+                    <Btn label={`Download ${(model.bytes / 1e9).toFixed(1)} GB`} kind="primary"
+                      onPress={fetchWeights} />
+                    <Text style={s.help}>Once. After that it works with no internet at all.</Text>
+                  </View>
+                )}
+                {progress >= 0 && (
+                  <View style={{ marginTop: 12 }}>
+                    <View style={s.track}>
+                      <View style={[s.trackFill, { width: `${Math.round(progress * 100)}%` }]} />
+                    </View>
+                    <Text style={s.help}>Downloading… {Math.round(progress * 100)}%</Text>
+                  </View>
+                )}
+                {ready && <Text style={[s.help, { color: C.pass, marginTop: 10 }]}>
+                  Loaded and running on this phone.</Text>}
+              </>
+            ) : (
+              <Text style={[s.help, { marginTop: 10 }]}>
+                This phone is too small to host a model of its own, so the assistant uses the one
+                already loaded on your PC instead.
+              </Text>
+            )}
+            {!!problem && <Text style={s.error}>{problem}</Text>}
+
+            {(ready || !model) && (
+              <View style={[s.row, { marginTop: 14 }]}>
+                <Text style={[s.monName, { flex: 1 }]}>Answer on this phone</Text>
+                <Switch value={onPhone && !!model} disabled={!model}
+                  trackColor={{ true: C.chrome, false: C.plate3 }} thumbColor="#fff"
+                  onValueChange={setOnPhone} />
+              </View>
+            )}
+            {(ready || !model) && (
+              <Text style={s.help}>
+                {onPhone && model
+                  ? "Private and offline, but a phone-sized model."
+                  : "Uses the PC's much larger model. Needs BURN-IN running."}
+              </Text>
+            )}
           </Plate>
         )}
+
         {turns.map((t, i) => (
           <View key={i} style={[s.bubble, t.role === "user" ? s.bubbleMine : s.bubbleTheirs]}>
             <Text style={t.role === "user" ? s.bubbleMineText : s.bubbleText}>{t.content}</Text>
@@ -599,11 +697,14 @@ function Assistant({ host, token, onError }) {
         ))}
         {busy && <View style={[s.bubble, s.bubbleTheirs]}><ActivityIndicator color={C.muted} /></View>}
       </ScrollView>
+
       <View style={s.composer}>
-        <TextInput value={draft} onChangeText={setDraft} placeholder="Ask the PC's model…"
+        <TextInput value={draft} onChangeText={setDraft}
+          placeholder={onPhone && ready ? "Ask this phone…" : "Ask the PC's model…"}
           placeholderTextColor={C.faint} style={[s.input, { flex: 1, marginTop: 0 }]}
           multiline onSubmitEditing={send} returnKeyType="send" blurOnSubmit />
-        <Btn label="Send" kind="primary" onPress={send} busy={busy} />
+        <Btn label="Send" kind="primary" onPress={send}
+          busy={busy} disabled={onPhone && !!model && !ready} />
       </View>
     </KeyboardAvoidingView>
   );
