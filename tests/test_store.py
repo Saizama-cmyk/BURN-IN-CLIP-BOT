@@ -117,3 +117,25 @@ def test_sweeper_clears_scratch_but_never_finished_clips(tmp_path):
     assert not dead.exists(), "buffer for an unwatched stream should be gone"
     assert live.exists(), "the stream being watched keeps its buffer"
     assert keeper.exists(), "finished clips are never swept"
+
+
+def test_abandon_stale_rewrites_stage_and_reason(tmp_path):
+    """A clip whose buffer has rolled away can never finish, so it is written off.
+
+    The stage lives in its own column *and* inside the JSON blob. Rewriting only the column
+    would leave a row that reads as failed but loads as transcribe, and so comes back to life
+    on the next start - which is exactly what filled the queue and held the failsafe on."""
+    st = Store(tmp_path / "db.sqlite")
+    old = make(stage=Stage.TRANSCRIBE, created=time.time() - 4 * 3600)
+    fresh = make(stage=Stage.TRANSCRIBE)
+    st.upsert_candidate(old)
+    st.upsert_candidate(fresh)
+
+    dropped = st.abandon_stale(("queued", "transcribe"), time.time() - 3600, "buffer is gone")
+    assert dropped == 1
+
+    gone = st.get_candidate(old.id)
+    assert gone.stage is Stage.FAILED and gone.error == "buffer is gone"
+    assert st.get_candidate(fresh.id).stage is Stage.TRANSCRIBE
+    assert [c.id for c in st.active_candidates()] == [fresh.id]   # not resumed on the next start
+    st.close()

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import datetime
 import logging
 import shutil
 import time
@@ -457,8 +456,7 @@ class Pipeline:
     async def _abandon_stale(self) -> None:
         """Written off at startup: their buffered video is long gone, so they can never finish."""
         hours = self.settings.clip.abandon_after_h
-        cutoff = (datetime.datetime.now(datetime.timezone.utc)
-                  - datetime.timedelta(hours=hours)).isoformat()
+        cutoff = time.time() - hours * 3600
         dropped = await asyncio.to_thread(
             self.store.abandon_stale, UNFINISHED, cutoff,
             f"given up: still unfinished after {hours:g}h, and the buffer it came from is gone")

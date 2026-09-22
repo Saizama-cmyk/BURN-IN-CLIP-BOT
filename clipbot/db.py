@@ -98,15 +98,28 @@ class Store:
                 tuple(str(s) for s in ACTIVE_STAGES)).fetchall()
         return [Candidate.from_dict(json.loads(r["json"])) for r in rows]
 
-    def abandon_stale(self, stages: tuple[str, ...], older_than_iso: str, reason: str) -> int:
-        """Mark unfinished candidates older than a cutoff as failed. Returns how many."""
+    def abandon_stale(self, stages: tuple[str, ...], older_than: float, reason: str) -> int:
+        """Write off unfinished candidates older than a cutoff. Returns how many.
+
+        The stage and the reason both live in the JSON blob as well as in their own columns, so
+        both are rewritten: a row whose column says failed but whose blob still says transcribe
+        would come back to life the next time it is loaded."""
         marks = ",".join("?" for _ in stages)
-        with self._connect() as db:
-            cur = db.execute(
-                f"UPDATE candidates SET stage = 'failed', error = ? "
-                f"WHERE stage IN ({marks}) AND created_at < ?",
-                (reason, *stages, older_than_iso))
-            return cur.rowcount
+        changed = 0
+        with self._lock, self._conn:
+            rows = self._conn.execute(
+                f"SELECT id, json FROM candidates WHERE stage IN ({marks}) AND created_at < ?",
+                (*stages, older_than)).fetchall()
+            for row in rows:
+                try:
+                    blob = json.loads(row["json"])
+                except json.JSONDecodeError:
+                    blob = {}
+                blob["stage"], blob["error"] = str(Stage.FAILED), reason
+                self._conn.execute("UPDATE candidates SET stage=?, json=? WHERE id=?",
+                                   (str(Stage.FAILED), json.dumps(blob), row["id"]))
+                changed += 1
+        return changed
 
     def recent_candidates(self, limit: int) -> list[dict]:
         """Newest first, without word timings (keeps dashboard payloads small)."""
