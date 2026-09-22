@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from .. import __version__
+from ..aiplan import plan
 from ..checklist import run_checklist
 from ..clipability import AIUnavailable
 from ..config import (LEAF_FIELDS, RESTART_FIELDS, SECRET_FIELDS, Settings, export_settings,
@@ -45,6 +46,8 @@ logger = logging.getLogger("clipbot.server")
 ACTION_HEADER = "x-clipbot"
 BEARER = "bearer "
 MESH_RANGE = ipaddress.ip_network("100.64.0.0/10")   # carrier-grade NAT space; Tailscale uses it
+MESH_SUFFIX = ".ts.net"      # Tailscale MagicDNS, reachable only inside the tailnet
+HTTPS_PORT = "443"
 _ID_RE = re.compile(r"^[0-9a-f]{6,32}$")
 _OAUTH_PLATFORMS = ("youtube", "tiktok")
 _PUBLIC = ("/static/", "/api/auth/", "/oauth/youtube/callback", "/oauth/tiktok/callback")
@@ -65,12 +68,14 @@ def _private_host(host: str, port: int) -> bool:
     Only consulted when the phone remote is switched on. Public addresses and odd ports are
     still refused, which keeps the DNS-rebinding guard intact."""
     name, _, got = host.partition(":")
-    if got and got != str(port):
+    if got and got not in (str(port), HTTPS_PORT):
         return False
     try:
         ip = ipaddress.ip_address(name)
     except ValueError:
-        return False
+        # a Tailscale MagicDNS name, which only resolves inside the user's own tailnet and is
+        # served over HTTPS with a real certificate
+        return name.lower().endswith(MESH_SUFFIX)
     # home network, or a private mesh like Tailscale/ZeroTier, which hands out 100.64.0.0/10
     return ip.is_private or ip in MESH_RANGE
 
@@ -447,6 +452,33 @@ def create_app(ctx) -> FastAPI:
         snap["remote_url"] = ctx.lan_url if ctx.settings.dashboard.remote else ""
         snap["version"] = __version__
         return snap
+
+    @app.post("/api/chat")
+    async def chat(request: Request):
+        """One turn of conversation with the local model (the phone's Assistant tab)."""
+        body = await _json(request)
+        raw = body.get("messages")
+        if not isinstance(raw, list) or not raw:
+            raise HTTPException(422, "messages must be a non-empty list")
+        ai = ctx.settings.ai
+        history = [{"role": "assistant" if m.get("role") == "assistant" else "user",
+                    "content": str(m.get("content", ""))[:ai.transcript_max_chars]}
+                   for m in raw[-ai.chat_history:] if str(m.get("content", "")).strip()]
+        if not history:
+            raise HTTPException(422, "nothing to say")
+        model = ai.chat_model.strip() or plan(ctx.settings, ctx.pipeline.vram_gb).judge_model
+        payload = {"model": model, "stream": False,
+                   "messages": [{"role": "system", "content": ai.chat_system}, *history],
+                   "options": {"num_ctx": ai.vision_num_ctx, "temperature": ai.chat_temperature}}
+        try:
+            r = await ctx.pipeline.http.post(f"{ai.ollama_url.rstrip('/')}/api/chat", json=payload,
+                                             timeout=ai.chat_timeout_s)
+            r.raise_for_status()
+        except httpx.HTTPError as exc:
+            return JSONResponse({"error": f"The local model did not answer: {exc}"},
+                                status_code=503)
+        reply = (r.json().get("message") or {}).get("content", "").strip()
+        return {"reply": reply, "model": model}
 
     @app.get("/api/setup")
     async def setup():

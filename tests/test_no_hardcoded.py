@@ -27,7 +27,9 @@ REVIEWED_CONSTANTS = {
     "app.py": {"STARTUP_POLL_S", "LAN_PROBE_PORT"},                                       # wait-for-bind poll
     "discovery.py": {"TOKEN_REFRESH_MARGIN_S", "KICK_CHANNELS_MAX",      # OAuth margin, API limits
                      "KICK_V1_SEARCH_MAX", "KICK_V1_GONE"},
-    "chat.py": {"TWITCH_NICK_DIGITS"},                                  # justinfan##### format
+    "chat.py": {"TWITCH_NICK_DIGITS"},
+    "sweeper.py": {"GB", "HOUR_S"},                                     # unit conversions
+    "storage.py": {"GB"},                                  # justinfan##### format
     "editor.py": {"_WATERMARK_ALIGN", "_CAPTION_ALIGN", "_ALPHA_MAX", "_BOX_FIELDS",
                   "_HOOK_ALIGN", "_HOOK_PAD_DIV", "_HOOK_FADE_IN_MS", "_HOOK_FADE_OUT_MS"},  # ASS format values
     "clipability.py": {"SCORE_MAX", "PEAK_DEFAULT_FRACTION"},                                    # the 0-10 scale
@@ -35,7 +37,7 @@ REVIEWED_CONSTANTS = {
     "analytics.py": {"DAY_S"},
     "copywriter.py": {"YOUTUBE_TITLE_MAX", "YOUTUBE_DESC_MAX", "YOUTUBE_TAGS_TOTAL_MAX",
                       "CAPTION_MAX", "FACEBOOK_TITLE_MAX", "DISCORD_MAX"},   # API limits
-    "pipeline.py": {"GIB"},
+    "pipeline.py": {"GIB", "SWEEP_IDLE_S", "RAW_SUFFIX"},
     "db.py": {"SQLITE_BUSY_TIMEOUT_S"},
     "vision.py": {"GROUND_SCALE"},                                      # Qwen-VL box coordinates
     "models.py": {"ID_LEN"},

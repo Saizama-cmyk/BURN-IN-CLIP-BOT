@@ -26,3 +26,5 @@ phone/.expo/
 secrets.json
 tokens.json
 release_config.local.json
+*.crt
+*.ts.net.*

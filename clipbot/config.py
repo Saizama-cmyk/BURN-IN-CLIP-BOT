@@ -159,6 +159,20 @@ class AppCfg(Section):
     clips_dir: str = F("", "Clips folder",
                        "Finished vertical clips. Empty = <data folder>\\clips.", restart=True,
                        widget="path")
+    overflow_dirs: list[str] = F(default_factory=list, title="Overflow drives",
+                                 description="Extra folders to keep clips in once the main drive "
+                                 "runs low, in order. One per line, e.g. D:\\BURN-IN clips. New "
+                                 "clips go to the first one with room; clips already written stay "
+                                 "where they are and keep playing.", widget="lines")
+    sweep_min: float = F(10.0, "Tidy up every (min)", "How often BURN-IN clears out work files "
+                         "and buffers for streams it no longer watches. 0 = only when space runs "
+                         "low.", ge=0, le=720)
+    work_keep_h: float = F(6.0, "Keep work files for (h)", "Half-finished cuts and frames are "
+                           "deleted after this long. They are only useful while a clip is being "
+                           "made.", ge=0.5, le=168)
+    overflow_free_gb: float = F(25.0, "Move on when free space is under (GB)",
+                                "Free space on the current drive that makes BURN-IN start writing "
+                                "to the next one.", ge=1, le=2000)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = F(
         "INFO", "Log level", "How chatty clipbot.log and the console are.")
     log_max_mb: int = F(10, "Log file size (MB)", "Rotate clipbot.log after this many megabytes.",
@@ -548,6 +562,26 @@ class AICfg(Section):
     vision_prompt: str = F(DEFAULT_VISION_PROMPT, "Vision prompt",
                            "Instructions for the vision model. {streamer} {category} {frames} are filled in.",
                            widget="textarea")
+    prefilter: bool = F(True, "Skip obvious dead air", "Reject a moment before the AI sees it when "
+                        "nobody spoke, the sound never jumped and no keyword fired. It is the "
+                        "cheapest way to keep the queue short, and the judge rejects these anyway.")
+    prefilter_words: int = F(3, "Words that count as speech", "Fewer spoken words than this counts "
+                             "as nobody talking.", ge=0, le=50)
+    prefilter_audio_z: float = F(1.2, "Loudness that counts as something", "Audio z-score below "
+                                 "this counts as nothing happening.", ge=0, le=10)
+    chat_model: str = F("", "Assistant model", "Model the phone's Assistant tab talks to. Empty "
+                        "uses the judge model that is already loaded, which costs no extra VRAM. "
+                        "Name another (qwen3:8b, llama3.1:8b) only if you want a second one.")
+    chat_system: str = F("You are a straight-talking assistant running on this person's own PC. "
+                         "Be concise and concrete. Say when you do not know something.",
+                         "Assistant instructions", "How the assistant should behave.",
+                         widget="textarea")
+    chat_history: int = F(16, "Messages remembered", "How much of the conversation is sent back "
+                          "each time. Higher costs more time per reply.", ge=2, le=80)
+    chat_timeout_s: float = F(180.0, "Assistant timeout (s)", "Longest a reply may take.",
+                              ge=10, le=900)
+    chat_temperature: float = F(0.7, "Assistant temperature", "Higher is more playful, lower is "
+                                "more literal.", ge=0, le=2)
     second_look: bool = F(True, "Second look at near-misses", "A candidate that lands just under "
                           "the pass mark is judged again with more frames to look at, instead of "
                           "being thrown away. This is what stops good clips slipping through.")

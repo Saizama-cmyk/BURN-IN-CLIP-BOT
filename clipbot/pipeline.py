@@ -25,7 +25,7 @@ from . import __version__
 from .assembler import AssembleError, assemble, quality_check
 from .capture import CaptureManager
 from .chat import ChatHub
-from .clipability import SCORE_MAX, AIUnavailable, Clipability
+from .clipability import looks_like_dead_air, SCORE_MAX, AIUnavailable, Clipability
 from .config import AppPaths, Settings, atomic_write, ffmpeg_exe, ffprobe_exe, merge_incoming
 from .db import Store
 from .detector import Detector
@@ -40,13 +40,17 @@ from .vision import Vision, find_facecam
 from .copywriter import Copywriter
 from .analytics import Analytics
 from .clip_import import ClipImporter
-from .media import delete_candidate_media, frames_dir, free_bytes
+from .media import safe_name, delete_candidate_media, frames_dir, free_bytes
 from .studio import apply_style, clean_style
 from .aiplan import vram_gb
 from .ollama_setup import ModelSetup
+from .sweeper import sweep
+from .storage import clips_target
 from .safety import Filter
 
 logger = logging.getLogger("clipbot.pipeline")
+RAW_SUFFIX = ".mp4"       # the source cut; everything else in work/ is scratch
+SWEEP_IDLE_S = 300.0      # nothing to do: look again in five minutes
 
 GIB = 1024 * 1024 * 1024
 
@@ -201,6 +205,7 @@ class Pipeline:
         if (old.twitch, old.kick, old.discovery) != (s.twitch, s.kick, s.discovery):
             self._discovery_wake.set()
         loop.create_task(self._refresh_failsafe())
+        self._tasks.append(loop.create_task(self._sweep_loop(), name="sweeper"))
 
     @property
     def running(self) -> bool:
@@ -242,21 +247,26 @@ class Pipeline:
         return self.failsafe_paused
 
     def _update_relief(self, now: float, pressure: float) -> None:
-        """Watch fewer streams while behind; give the slots back once caught up."""
+        """Watch fewer streams while behind; give them back as soon as the queue is healthy.
+
+        Bounded on purpose: it may never give up more than ``slots - relief_floor`` streams, so
+        the board cannot empty itself no matter how long the PC stays busy."""
         b = self.settings.backlog
         if not b.relief:
             self.slot_relief = 0
             return
-        stuck = self.failsafe_paused and self._failsafe_since and \
-            now - self._failsafe_since >= b.relief_after_s
-        if stuck and now - self._relief_at >= b.relief_after_s:
+        ceiling = max(0, len(self.targets) - b.relief_floor)
+        stuck = (self.failsafe_paused and self._failsafe_since
+                 and now - self._failsafe_since >= b.relief_after_s)
+        if stuck and self.slot_relief < ceiling and now - self._relief_at >= b.relief_after_s:
             self._relief_at = now
-            self.slot_relief += b.relief_step
+            self.slot_relief = min(ceiling, self.slot_relief + b.relief_step)
             logger.info("catching up: watching %d fewer streams for now", self.slot_relief)
-        elif not self.failsafe_paused and self.slot_relief and pressure <= b.resume_at / 2:
+        elif not self.failsafe_paused and self.slot_relief and pressure <= b.resume_at:
             self._relief_at = now
             self.slot_relief = max(0, self.slot_relief - b.relief_step)
-            logger.info("caught up: giving %d streams back", b.relief_step)
+            logger.info("caught up: back to watching %d more streams",
+                        b.relief_step if self.slot_relief else b.relief_step)
 
     async def _refresh_failsafe(self) -> None:
         self._update_failsafe(self.pressure)
@@ -418,26 +428,70 @@ class Pipeline:
         await asyncio.to_thread(self.store.upsert_candidate, c)
 
     async def _check_disk(self) -> None:
-        """Pause capture while the buffer drive is nearly full (``app.min_free_gb``)."""
+        """Keep the buffer drive usable: tidy up first, pause only if that was not enough.
+
+        Pausing capture is the last resort - it stops the whole point of the app - so anything
+        safe to delete goes first: work files, buffers for streams nobody watches, then the
+        oldest buffered video."""
         free = await free_bytes(self.paths.buffer)
         if free is None:
             return
-        low = free < self.settings.app.min_free_gb * GIB
+        want = self.settings.app.min_free_gb
+        if free < want * GIB:
+            await asyncio.to_thread(sweep, self.settings, self.paths, self._live_keys(), want)
+            free = await free_bytes(self.paths.buffer) or free
+        low = free < want * GIB
         if low != self.disk_paused:
             self.disk_paused = low
             logger.warning("disk space %s: %.1f GB free on the buffer drive — capture %s",
                            "LOW" if low else "ok", free / GIB, "paused" if low else "resumed")
             await self._sync_capture_pause()
 
+    def _live_keys(self) -> set[str]:
+        """Buffer folder names for the streams being watched right now."""
+        return {safe_name(key) for key in self.targets}
+
+    async def _sweep_loop(self) -> None:
+        """Clear out work files and dead buffers on a timer, so space never gets tight."""
+        while True:
+            minutes = self.settings.app.sweep_min
+            if minutes <= 0:
+                await asyncio.sleep(SWEEP_IDLE_S)
+                continue
+            await asyncio.sleep(minutes * 60)
+            try:
+                await asyncio.to_thread(sweep, self.settings, self.paths, self._live_keys())
+            except OSError as exc:
+                logger.warning("tidy-up skipped: %s", exc)
+
     async def _discard_raw(self, c: Candidate) -> None:
         if c.raw_path and not self.settings.edit.keep_raw:
             await asyncio.to_thread(Path(c.raw_path).unlink, True)
+
+    async def _clear_work(self, c: Candidate) -> None:
+        """Everything this candidate left in the work folder, gone as soon as it is finished.
+
+        Frames and the concat list are only useful while the AI is looking at the clip, so they
+        always go. The source cut goes too unless ``edit.keep_raw`` says to hang on to it."""
+        def wipe() -> None:
+            shutil.rmtree(frames_dir(self.paths, c.id), ignore_errors=True)
+            for leftover in self.paths.work.glob(f"{c.id}*"):
+                if leftover.is_dir():
+                    shutil.rmtree(leftover, ignore_errors=True)
+                elif leftover.suffix.lower() != RAW_SUFFIX or not self.settings.edit.keep_raw:
+                    leftover.unlink(missing_ok=True)
+
+        try:
+            await asyncio.to_thread(wipe)
+        except OSError as exc:
+            logger.debug("could not clear work files for %s: %s", c.id, exc)
 
     async def _finish(self, c: Candidate, stage: Stage, error: str) -> None:
         c.error = error
         await self._save(c, stage)
         if not self.settings.clip.keep_rejected_hours:   # else kept for preview, cleaned up later
             await self._discard_raw(c)
+        await self._clear_work(c)
         logger.info("candidate %s %s: %s", c.id, stage, error)
 
     async def _run_candidate(self, c: Candidate) -> None:
@@ -466,6 +520,12 @@ class Pipeline:
             said = Filter(s).slurs_in(c.transcript) if s.safety.enabled and s.safety.skip_slur_clips else []
             if said:
                 await self._finish(c, Stage.REJECTED, f"unsafe: slur in speech ({len(said)}x)")
+                return
+
+            if looks_like_dead_air(c, s.ai):
+                await self._finish(c, Stage.REJECTED,
+                                   "dead_air: nobody spoke, the sound never jumped and no keyword "
+                                   "fired (skipped before the AI)")
                 return
 
             # one clip at a time through vision + judge + writer: frames are grabbed only when it's
@@ -502,7 +562,7 @@ class Pipeline:
 
                 c.post_copy = await self.copywriter.write(c, self.analytics.notes(), Path(c.raw_path))
             await self._save(c, Stage.EDIT)
-            out = self.paths.clips / f"{c.event.target.login}_{c.id}.mp4"
+            out = clips_target(self.settings, self.paths) / f"{c.event.target.login}_{c.id}.mp4"
             facecam = await self._auto_facecam(c)
             async with self._edit_limit:
                 await render(Path(c.raw_path), out, verdict["trim_start"], verdict["trim_end"],
@@ -513,6 +573,7 @@ class Pipeline:
             c.final_path = str(out)
             await self._save(c, Stage.SCHEDULED)
             await self._discard_raw(c)
+            await self._clear_work(c)
             logger.info("candidate %s ready: %s (score %s)", c.id, verdict["title"],
                         verdict["score"])
         except asyncio.CancelledError:

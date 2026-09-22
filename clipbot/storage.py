@@ -16,6 +16,7 @@ from .config import AppPaths, Settings, atomic_write, home_dir
 
 logger = logging.getLogger("clipbot.storage")
 
+GB = 1024 ** 3
 KINDS = {"data": "data_dir", "buffer": "buffer_dir", "work": "work_dir", "clips": "clips_dir",
          "logs": "logs_dir", "models": "models_dir"}
 # never moved with the data folder: these belong to the profile / app, not the data
@@ -95,3 +96,29 @@ def apply_pending(settings: Settings) -> list[str]:
             logger.error(notes[-1])
     pending_path().unlink(missing_ok=True)
     return notes
+
+
+def free_gb(path: Path) -> float:
+    """Free space on the drive holding ``path`` (0 when it cannot be read)."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        return shutil.disk_usage(path).free / GB
+    except OSError as exc:
+        logger.warning("cannot read free space of %s: %s", path, exc)
+        return 0.0
+
+
+def clips_target(settings: Settings, paths: AppPaths) -> Path:
+    """Where the next clip should be written: the main folder until it runs low, then the first
+    overflow drive with room. Falls back to the main folder when every drive is full, so a clip
+    is never lost to a missing directory."""
+    want = settings.app.overflow_free_gb
+    folders = [paths.clips] + [Path(os.path.expandvars(d.strip()))
+                               for d in settings.app.overflow_dirs if d.strip()]
+    for folder in folders:
+        if free_gb(folder) >= want:
+            if folder != paths.clips:
+                logger.info("clips overflowing to %s (main drive under %.0f GB free)", folder, want)
+            return folder
+    logger.warning("every clip folder is under %.0f GB free; still writing to %s", want, paths.clips)
+    return paths.clips

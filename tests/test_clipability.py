@@ -4,7 +4,8 @@ import json
 import httpx
 import pytest
 
-from clipbot.clipability import AIUnavailable, Clipability, clamp_trims, parse_verdict
+from clipbot.clipability import (AIUnavailable, Clipability, clamp_trims,
+                                 looks_like_dead_air, parse_verdict)
 from clipbot.config import ClipCfg, Settings
 from clipbot.models import Candidate, Platform, SpikeEvent, StreamTarget
 
@@ -105,3 +106,24 @@ def test_two_model_mode_uses_judge_model_with_json():
     s = merge_incoming(Settings(), {"ai": {"judge_profile": "custom", "single_model": False}})
     v, calls = judge([json.dumps(GOOD)], s)
     assert v["passed"] and calls[0]["model"] == s.ai.model and calls[0]["format"] == "json"
+
+
+def _candidate(transcript="", audio_z=0.0, keywords=()):
+    target = StreamTarget(platform=Platform.TWITCH, login="sam", display_name="Sam",
+                          category="Just Chatting", viewers=100)
+    event = SpikeEvent(target=target, t_wall=10.0, kind="chat", score=1.0, chat_rate=2.0,
+                       baseline=0.5, keywords_hit=list(keywords), chat_z=3.0, audio_z=audio_z)
+    return Candidate(id="abc123", event=event, start_wall=0.0, end_wall=20.0,
+                     raw_path="", transcript=transcript)
+
+
+def test_dead_air_is_skipped_before_the_ai_but_anything_real_is_not():
+    """Silence with no keyword and no loudness jump never reaches the judge; the rest does."""
+    ai = Settings().ai
+    assert looks_like_dead_air(_candidate(), ai)
+    assert not looks_like_dead_air(_candidate(transcript="oh my god what was that"), ai)
+    assert not looks_like_dead_air(_candidate(audio_z=3.4), ai)
+    assert not looks_like_dead_air(_candidate(keywords=["CLIP IT"]), ai)
+
+    ai.prefilter = False
+    assert not looks_like_dead_air(_candidate(), ai), "switched off means everything is judged"

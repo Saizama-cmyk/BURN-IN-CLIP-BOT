@@ -250,3 +250,21 @@ class Clipability:
                 raise
             finally:
                 self.busy = False
+
+
+DEAD_AIR = "dead_air"
+
+
+def looks_like_dead_air(c: Candidate, ai: AICfg) -> bool:
+    """True when nothing happened that the judge could possibly reward.
+
+    Needs all three to be true: almost nothing said, no jump in loudness, and no keyword hit.
+    Any one of them is enough to earn a proper look."""
+    if not ai.prefilter:
+        return False
+    words = len((c.transcript or "").split())
+    if words >= ai.prefilter_words:
+        return False
+    if abs(c.event.audio_z) >= ai.prefilter_audio_z:
+        return False
+    return not c.event.keywords_hit

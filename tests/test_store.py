@@ -1,3 +1,4 @@
+import os
 import time
 
 from clipbot.db import Store
@@ -78,3 +79,41 @@ def test_candidate_histogram_covers_full_history_and_window_edges(tmp_path):
     assert history["hours"][0] == 1 and history["passed_hours"][0] == 1
     assert sum(history["hours"]) == 132  # excludes future and exactly-expired rows
     st.close()
+
+
+def test_sweeper_clears_scratch_but_never_finished_clips(tmp_path):
+    """Work files and dead buffers go; the clips themselves are the product and stay."""
+    from clipbot import sweeper
+    from clipbot.config import AppPaths
+
+    work, buffer, clips = tmp_path / "work", tmp_path / "buffer", tmp_path / "clips"
+    for d in (work, buffer, clips):
+        d.mkdir()
+    old = work / "abc123_raw.mp4"
+    old.write_bytes(b"x" * 1024)
+    os.utime(old, (0, 0))                       # older than any keep window
+    fresh = work / "new_raw.mp4"
+    fresh.write_bytes(b"y" * 1024)
+    dead = buffer / "twitch_gone"
+    dead.mkdir()
+    seg = dead / "seg_20260101000000.ts"
+    seg.write_bytes(b"z" * 2048)
+    os.utime(seg, (0, 0))
+    live = buffer / "twitch_live"
+    live.mkdir()
+    (live / "seg_20260101000001.ts").write_bytes(b"z" * 2048)
+    keeper = clips / "streamer_abc.mp4"
+    keeper.write_bytes(b"clip")
+
+    paths = AppPaths(data=tmp_path, buffer=buffer, work=work, clips=clips, logs=tmp_path,
+                     db=tmp_path / "db", tokens=tmp_path / "t.json", models=None)
+    from clipbot.config import Settings
+    settings = Settings()
+    settings.app.work_keep_h = 1
+    sweeper.sweep(settings, paths, live_keys={"twitch_live"})
+
+    assert not old.exists(), "stale work file should be gone"
+    assert fresh.exists(), "work from the last hour is still in use"
+    assert not dead.exists(), "buffer for an unwatched stream should be gone"
+    assert live.exists(), "the stream being watched keeps its buffer"
+    assert keeper.exists(), "finished clips are never swept"
