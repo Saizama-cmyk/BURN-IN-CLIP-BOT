@@ -7,8 +7,8 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, StatusBar,
-  StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, Pressable,
+  RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
@@ -23,7 +23,8 @@ const C = {
 };
 const HEAD = { fontWeight: "700", letterSpacing: 1.6, textTransform: "uppercase" };
 const KEY_HOST = "burnin.host", KEY_TOKEN = "burnin.token";
-const POLL_MS = 2500, TIMEOUT_MS = 6000, CLIP_LIMIT = 30, MON_LIMIT = 12, DEFAULT_PORT = 8787;
+const POLL_MS = 2500, TIMEOUT_MS = 6000, CHAT_TIMEOUT_MS = 180000;
+const CLIP_LIMIT = 30, MON_LIMIT = 15, DEFAULT_PORT = 8787;
 const RELEASE_API = "https://api.github.com/repos/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tags/phone-latest";
 const RELEASE_PAGE = "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tag/phone-latest";
 
@@ -45,9 +46,9 @@ function baseUrl(raw) {
 }
 
 /* ------------------------------------------------------------------ api */
-async function call(host, path, { token, method = "GET", body } = {}) {
+async function call(host, path, { token, method = "GET", body, timeout = TIMEOUT_MS } = {}) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeout);
   try {
     const res = await fetch(`${host}${path}`, {
       method,
@@ -397,6 +398,217 @@ function Log({ host, token, state, onError }) {
   );
 }
 
+
+/* ------------------------------------------------------------------ studio */
+function Studio({ host, token, onError, toast }) {
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const r = await call(host, "/api/studio", { token });
+      if (r.ok) setInfo(r.data);
+    } catch (e) { onError(); }
+  }, [host, token, onError]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const useTheme = async (name, style) => {
+    setBusy(name);
+    try {
+      const r = await call(host, "/api/studio/default", { token, method: "POST", body: { style } });
+      toast(r.ok ? `${name} is the look for new clips` : "Could not apply that look");
+      await load();
+    } catch (e) { onError(); }
+    setBusy("");
+  };
+
+  const themes = Object.entries(info?.themes || {});
+  return (
+    <>
+      <Plate>
+        <Text style={[s.label, { marginBottom: 10 }]}>Look for new clips</Text>
+        {themes.length === 0 && <Text style={s.empty}>Loading looks…</Text>}
+        {themes.map(([name, style], i) => (
+          <View key={name} style={[s.mon, i > 0 && s.divider]}>
+            <View style={[s.swatch, { backgroundColor: style.highlight_color || C.chrome }]} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.monName}>{name}</Text>
+              <Text style={s.monSub} numberOfLines={1}>
+                {style.font || "—"} · {style.caption_uppercase ? "CAPS" : "normal"} captions
+              </Text>
+            </View>
+            <Btn label="Use" busy={busy === name} onPress={() => useTheme(name, style)} />
+          </View>
+        ))}
+      </Plate>
+      {!!info?.current && (
+        <Plate>
+          <Text style={[s.label, { marginBottom: 8 }]}>Current</Text>
+          <Text style={s.monSub}>{info.current.font} · {info.current.layout} layout
+            {info.current.captions ? " · captions on" : " · captions off"}</Text>
+          <Text style={[s.monSub, { marginTop: 4 }]}>Watermark {info.watermark || "none"}</Text>
+        </Plate>
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ settings */
+function SettingsTab({ host, token, onError, toast }) {
+  const [schema, setSchema] = useState(null);
+  const [values, setValues] = useState(null);
+  const [section, setSection] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [sc, va] = await Promise.all([
+        call(host, "/api/settings/schema", { token }),
+        call(host, "/api/settings", { token }),
+      ]);
+      if (sc.ok) setSchema(sc.data);
+      if (va.ok) setValues(va.data);
+    } catch (e) { onError(); }
+  }, [host, token, onError]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (key, field, value) => {
+    setBusy(true);
+    try {
+      const r = await call(host, "/api/settings", {
+        token, method: "POST", body: { [key]: { [field]: value } },
+      });
+      toast(r.ok ? "Saved" : (r.data.errors?.[0]?.msg || "Could not save that"));
+      if (r.ok) setValues(v => ({ ...v, [key]: { ...(v?.[key] || {}), [field]: value } }));
+    } catch (e) { onError(); }
+    setBusy(false);
+  };
+
+  const props = schema?.properties || {};
+  const deref = (raw) => (raw?.$ref ? schema.$defs?.[raw.$ref.split("/").pop()] : raw) || {};
+
+  if (!section) {
+    return (
+      <Plate>
+        <Text style={[s.label, { marginBottom: 10 }]}>Settings</Text>
+        {Object.entries(props).map(([key, raw], i) => (
+          <Pressable key={key} onPress={() => setSection(key)} style={[s.mon, i > 0 && s.divider]}>
+            <Text style={[s.monName, { flex: 1 }]}>{raw.title || key}</Text>
+            <Text style={s.chev}>›</Text>
+          </Pressable>
+        ))}
+      </Plate>
+    );
+  }
+
+  const node = deref(props[section]);
+  const fields = Object.entries(node.properties || {});
+  const current = values?.[section] || {};
+  return (
+    <>
+      <Pressable onPress={() => setSection("")} style={{ paddingVertical: 10 }}>
+        <Text style={s.label}>‹ All settings</Text>
+      </Pressable>
+      <Plate>
+        <Text style={[s.label, { marginBottom: 10 }]}>{props[section]?.title || section}</Text>
+        {fields.length === 0 && <Text style={s.empty}>Edit this one on the PC.</Text>}
+        {fields.map(([key, raw], i) => {
+          const f = deref(raw);
+          const value = current[key];
+          const kind = raw.type || f.type || (raw.anyOf || [])[0]?.type;
+          if (value !== null && typeof value === "object") return null;    // nested: PC only
+          return (
+            <View key={key} style={[{ paddingVertical: 12 }, i > 0 && s.divider]}>
+              <View style={s.row}>
+                <Text style={[s.monName, { flex: 1 }]}>{raw.title || f.title || key}</Text>
+                {kind === "boolean" && (
+                  <Switch value={!!value} disabled={busy}
+                    trackColor={{ true: C.chrome, false: C.plate3 }} thumbColor="#fff"
+                    onValueChange={v => save(section, key, v)} />
+                )}
+              </View>
+              {!!(raw.description || f.description) && (
+                <Text style={s.help}>{raw.description || f.description}</Text>
+              )}
+              {kind !== "boolean" && (
+                <TextInput
+                  defaultValue={value === null || value === undefined ? "" : String(value)}
+                  style={[s.input, { marginTop: 8 }]} placeholderTextColor={C.faint}
+                  autoCapitalize="none" returnKeyType="done"
+                  keyboardType={kind === "number" || kind === "integer"
+                    ? "numbers-and-punctuation" : "default"}
+                  onSubmitEditing={e => {
+                    const raw2 = e.nativeEvent.text;
+                    save(section, key, (kind === "number" || kind === "integer")
+                      ? Number(raw2) : raw2);
+                  }} />
+              )}
+            </View>
+          );
+        })}
+      </Plate>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ assistant */
+function Assistant({ host, token, onError }) {
+  const [turns, setTurns] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const scroller = useRef(null);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || busy) return;
+    const next = [...turns, { role: "user", content: text }];
+    setTurns(next); setDraft(""); setBusy(true);
+    try {
+      const r = await call(host, "/api/chat", {
+        token, method: "POST", body: { messages: next }, timeout: CHAT_TIMEOUT_MS,
+      });
+      setTurns([...next, { role: "assistant", content: r.ok
+        ? (r.data.reply || "(the model said nothing)")
+        : (r.data.error || `The PC answered ${r.status}.`) }]);
+    } catch (e) {
+      setTurns([...next, { role: "assistant", content: "No answer from the PC. Is it awake?" }]);
+      onError();
+    }
+    setBusy(false);
+  };
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView ref={scroller} contentContainerStyle={{ padding: 14, paddingBottom: 8 }}
+        onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
+        {turns.length === 0 && (
+          <Plate>
+            <Text style={[s.label, { marginBottom: 8 }]}>Local assistant</Text>
+            <Text style={s.help}>
+              This talks to the model already loaded on your PC for judging clips. Nothing leaves
+              your network, there is no account, and it costs no extra memory.
+            </Text>
+          </Plate>
+        )}
+        {turns.map((t, i) => (
+          <View key={i} style={[s.bubble, t.role === "user" ? s.bubbleMine : s.bubbleTheirs]}>
+            <Text style={t.role === "user" ? s.bubbleMineText : s.bubbleText}>{t.content}</Text>
+          </View>
+        ))}
+        {busy && <View style={[s.bubble, s.bubbleTheirs]}><ActivityIndicator color={C.muted} /></View>}
+      </ScrollView>
+      <View style={s.composer}>
+        <TextInput value={draft} onChangeText={setDraft} placeholder="Ask the PC's model…"
+          placeholderTextColor={C.faint} style={[s.input, { flex: 1, marginTop: 0 }]}
+          multiline onSubmitEditing={send} returnKeyType="send" blurOnSubmit />
+        <Btn label="Send" kind="primary" onPress={send} busy={busy} />
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
 /* ------------------------------------------------------------------ self-update
    The same releases the sideloaders read. AltStore installs updates itself once its source is
    added; this banner is for everyone else (and for Android, where you tap and install). */
@@ -427,7 +639,10 @@ export default function App() {
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [assistant, setAssistant] = useState(false);
+  const [note, setNote] = useState("");
   const timer = useRef(null);
+  const toast = (msg) => { setNote(msg); setTimeout(() => setNote(""), 2600); };
   const update = useUpdate(Constants.expoConfig?.version || "");
 
   useEffect(() => {
@@ -450,11 +665,11 @@ export default function App() {
   }, [host, token]);
 
   useEffect(() => {
-    if (!host || !token) return undefined;
+    if (!host || !token || assistant) return undefined;
     poll();
     timer.current = setInterval(poll, POLL_MS);
     return () => clearInterval(timer.current);
-  }, [host, token, poll]);
+  }, [host, token, poll, assistant]);
 
   const signOut = async () => {
     await SecureStore.deleteItemAsync(KEY_TOKEN);
@@ -496,6 +711,16 @@ export default function App() {
           <Pressable onPress={signOut} hitSlop={10}><Text style={s.label}>Sign out</Text></Pressable>
         </View>
 
+        <View style={s.master}>
+          {[["Remote", false], ["Assistant", true]].map(([label, on]) => (
+            <Pressable key={label} onPress={() => setAssistant(on)}
+              style={[s.masterHalf, assistant === on && s.masterOn]} accessibilityRole="tab">
+              <Text style={[s.masterText, assistant === on && { color: C.text }]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {!!note && <View style={s.note}><Text style={s.noteText}>{note}</Text></View>}
         {!!update && (
           <Pressable onPress={() => Linking.openURL(RELEASE_PAGE)} style={s.update}>
             <Text style={s.updateText}>Version {update} is out - tap to get it</Text>
@@ -507,6 +732,7 @@ export default function App() {
           </View>
         )}
 
+        {assistant ? <Assistant host={host} token={token} onError={() => setOffline(true)} /> : (
         <ScrollView
           contentContainerStyle={{ padding: 14, paddingBottom: 26 }}
           refreshControl={<RefreshControl tintColor={C.muted} refreshing={refreshing}
@@ -514,17 +740,24 @@ export default function App() {
         >
           {tab === "deck" && <Deck state={state} onPause={pause} busy={busy} host={host} />}
           {tab === "clips" && <Clips host={host} token={token} onError={() => setOffline(true)} />}
+          {tab === "studio" && <Studio host={host} token={token} toast={toast}
+            onError={() => setOffline(true)} />}
+          {tab === "settings" && <SettingsTab host={host} token={token} toast={toast}
+            onError={() => setOffline(true)} />}
           {tab === "log" && <Log host={host} token={token} state={state} onError={() => setOffline(true)} />}
         </ScrollView>
-
+        )}
+        {!assistant && (
         <View style={s.tabs}>
-          {[["deck", "Desk"], ["clips", "Clips"], ["log", "Log"]].map(([key, label]) => (
+          {[["deck", "Desk"], ["clips", "Clips"], ["studio", "Studio"], ["settings", "Set"],
+            ["log", "Log"]].map(([key, label]) => (
             <Pressable key={key} onPress={() => setTab(key)}
               style={[s.tab, tab === key && s.tabOn]} accessibilityRole="tab">
               <Text style={[s.tabText, tab === key && { color: C.text }]}>{label}</Text>
             </Pressable>
           ))}
         </View>
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -588,6 +821,25 @@ const s = StyleSheet.create({
   error: { color: "#FFC9C8", fontSize: 13, marginTop: 12 },
   hint: { color: C.faint, fontSize: 12, marginTop: 14, lineHeight: 18 },
   petBox: { width: 92, height: 92, justifyContent: "flex-end" },
+  master: { flexDirection: "row", marginHorizontal: 14, marginBottom: 10, borderRadius: 10,
+    backgroundColor: C.plate, borderWidth: 1, borderColor: C.line, overflow: "hidden" },
+  masterHalf: { flex: 1, minHeight: 42, alignItems: "center", justifyContent: "center" },
+  masterOn: { backgroundColor: C.plate3 },
+  masterText: { ...HEAD, color: C.faint, fontSize: 11 },
+  swatch: { width: 26, height: 26, borderRadius: 4, borderWidth: 1, borderColor: C.line2 },
+  chev: { color: C.faint, fontSize: 20 },
+  help: { color: C.faint, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  note: { marginHorizontal: 14, marginBottom: 8, padding: 10, borderRadius: 8,
+    backgroundColor: C.plate2, borderWidth: 1, borderColor: C.line },
+  noteText: { color: C.text, fontSize: 12.5 },
+  bubble: { maxWidth: "88%", padding: 12, borderRadius: 12, marginBottom: 10 },
+  bubbleTheirs: { alignSelf: "flex-start", backgroundColor: C.plate, borderWidth: 1,
+    borderColor: C.line },
+  bubbleMine: { alignSelf: "flex-end", backgroundColor: C.chrome },
+  bubbleText: { color: C.text, fontSize: 15, lineHeight: 21 },
+  bubbleMineText: { color: "#0B0B0D", fontSize: 15, lineHeight: 21 },
+  composer: { flexDirection: "row", gap: 8, alignItems: "flex-end", padding: 12,
+    borderTopWidth: 1, borderTopColor: C.line, backgroundColor: "rgba(9,9,11,0.96)" },
   accounts: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   account: { minHeight: 40, paddingHorizontal: 14, justifyContent: "center", borderRadius: 8,
     backgroundColor: C.plate2, borderWidth: 1, borderColor: C.line },
