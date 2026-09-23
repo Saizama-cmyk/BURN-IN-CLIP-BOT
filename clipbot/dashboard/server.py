@@ -448,6 +448,8 @@ def create_app(ctx) -> FastAPI:
         snap["refresh_ms"] = ctx.settings.dashboard.refresh_ms
         snap["sound"] = {"on": ctx.settings.dashboard.ui_sounds, "volume": ctx.settings.dashboard.ui_volume}
         snap["viewer_poll_ms"] = ctx.settings.viewer.poll_ms
+        snap["viewer_max_lag_s"] = ctx.settings.viewer.live_max_lag_s
+        snap["viewer_keep_s"] = ctx.settings.viewer.live_keep_s
         snap["updates_on_start"] = ctx.settings.updates.check_on_start and bool(ctx.settings.updates.repo)
         snap["remote_url"] = ctx.lan_url if ctx.settings.dashboard.remote else ""
         snap["version"] = __version__

@@ -1057,6 +1057,14 @@ class ViewerCfg(Section):
     chat_lines: int = F(30, "Chat lines", "Recent chat messages shown next to the video.", ge=0, le=40)
     clips_shown: int = F(8, "Clips shown", "Clips from this stream listed in the viewer.", ge=0, le=50)
     poll_ms: int = F(1500, "Update interval (ms)", "How often the viewer refreshes.", ge=500, le=10000)
+    live_max_lag_s: float = F(12.0, "Jump to live when behind (s)", "The viewer plays buffer "
+                              "segments back to back, so a slow moment leaves it playing old "
+                              "video forever. Once it is this far behind what has been captured, "
+                              "it skips forward to the newest video instead of crawling.",
+                              ge=2, le=120)
+    live_keep_s: float = F(30.0, "Keep played video (s)", "How much already-played video the "
+                           "viewer keeps, so you can scrub back a little. The rest is dropped to "
+                           "keep the browser's memory flat during a long watch.", ge=5, le=600)
 
 
 class SafetyCfg(Section):

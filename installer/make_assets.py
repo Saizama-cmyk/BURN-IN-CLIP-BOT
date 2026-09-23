@@ -93,6 +93,50 @@ def wizard_images() -> None:
     small.convert("RGB").save(HERE / "wizard_small.bmp")
 
 
+PLATE = (7, 7, 8, 255)     # the brand's near-black; the mark's own plate sits on this
+ADAPTIVE_SAFE = 0.66       # Android masks an adaptive icon to about this much of the canvas
+MASKABLE_SAFE = 0.60       # a maskable web icon may be cropped to a circle
+PHONE_PX = 1024            # what the stores want; everything else is derived from it
+WEB_PX = 512
+
+
+def _on_plate(mark: Image.Image, px: int, fill: float) -> Image.Image:
+    """The mark centred on an opaque plate, filling ``fill`` of the canvas.
+
+    Opaque matters: iOS refuses alpha and composites it to black, and Android and the web mask
+    the icon to their own shape. Painting the brand colour ourselves is what makes the phone icon
+    the same icon as the one on Windows instead of a lookalike on a black square."""
+    out = Image.new("RGBA", (px, px), PLATE)
+    side = int(px * fill)
+    out.alpha_composite(mark.resize((side, side), Image.LANCZOS), ((px - side) // 2,) * 2)
+    return out
+
+
+def phone_icons() -> None:
+    """Every phone and web icon, rendered from the one mark the desktop app already uses."""
+    mark = Image.open(STATIC / "mark.png").convert("RGBA")
+    phone = ROOT / "phone" / "assets"
+    phone.mkdir(parents=True, exist_ok=True)
+
+    # iOS: square, opaque, no rounding of our own - iOS applies its own mask.
+    _on_plate(mark, PHONE_PX, 1.0).convert("RGB").save(phone / "icon-ios.png")
+
+    # Android adaptive: the foreground is transparent and must keep clear of the mask's edge,
+    # so the mark is inset; the launcher paints `backgroundColor` behind it.
+    fg = Image.new("RGBA", (PHONE_PX, PHONE_PX), (0, 0, 0, 0))
+    side = int(PHONE_PX * ADAPTIVE_SAFE)
+    fg.alpha_composite(mark.resize((side, side), Image.LANCZOS), ((PHONE_PX - side) // 2,) * 2)
+    fg.save(phone / "icon-adaptive.png")
+
+    # Notifications: Android draws these as a silhouette, so shape is all that survives.
+    fg.resize((256, 256), Image.LANCZOS).save(phone / "icon-notification.png")
+
+    # Web / installed-to-home-screen, including a maskable one that may be cropped to a circle.
+    _on_plate(mark, WEB_PX, 1.0).save(STATIC / "mark-web.png")
+    _on_plate(mark, WEB_PX, MASKABLE_SAFE).save(STATIC / "mark-maskable.png")
+    logger.info("phone and web icons rendered from mark.png")
+
+
 def legal_copies() -> None:
     """The app shows the same LICENSE/NOTICE/TERMS/PRIVACY that ship in the repo."""
     dst = ROOT / "clipbot" / "dashboard" / "static" / "legal"
@@ -122,6 +166,7 @@ def main() -> None:
     legal_copies()
     version_file()
     wizard_images()
+    phone_icons()
     logger.info("installer assets ready (version %s)", __version__)
 
 

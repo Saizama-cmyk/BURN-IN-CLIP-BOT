@@ -4,12 +4,12 @@
     "slug": "burn-in-remote",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-ios.png",
     "scheme": "burnin",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#070708",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/icon-ios.png",
       "resizeMode": "contain",
       "backgroundColor": "#070708"
     },
@@ -26,11 +26,17 @@
       },
       "entitlements": {
         "com.apple.developer.kernel.increased-memory-limit": true
-      }
+      },
+      "icon": "./assets/icon-ios.png"
     },
     "android": {
       "package": "os.spike.burnin.remote",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon-adaptive.png",
+        "backgroundColor": "#070708"
+      },
+      "icon": "./assets/icon-ios.png"
     },
     "plugins": [
       [
@@ -45,6 +51,13 @@
           }
         }
       ]
-    ]
+    ],
+    "notification": {
+      "icon": "./assets/icon-notification.png",
+      "color": "#070708"
+    },
+    "web": {
+      "favicon": "./assets/icon-ios.png"
+    }
   }
 }

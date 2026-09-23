@@ -1831,10 +1831,25 @@ setInterval(() => { if ($("#view-clips").classList.contains("active")) loadClips
 
 
 /* ---------------- live viewer: what BURN-IN sees, near-live from its own capture buffer ---------------- */
-const W = {key: null, timer: null, queue: [], seen: new Set(), chat: [], official: false, info: null, playing: null};
+const W = {key: null, timer: null, queue: [], seen: new Set(), chat: [], official: false, info: null, playing: null,
+           ms: null, sb: null, pending: [], fetching: false, mse: false, started: false};
+// One continuous stream instead of two <video> elements taking turns. Each buffer segment is
+// already fragmented MP4, so they can be appended into a single SourceBuffer: the browser then
+// keeps one clock for picture and sound, which is what stops the audio sliding out of step, and
+// there is no gap to stall on where one segment ends and the next begins.
+const WMSE_TYPES = ['video/mp4; codecs="avc1.640029,mp4a.40.2"', 'video/mp4; codecs="avc1.64001f,mp4a.40.2"',
+                    'video/mp4; codecs="avc1.4d401f,mp4a.40.2"', 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"'];
+const wMseType = () => (window.MediaSource ? WMSE_TYPES.find(t => MediaSource.isTypeSupported(t)) : null);
+const wMaxLag = () => (state && state.viewer_max_lag_s) || 12;
+const wKeep = () => (state && state.viewer_keep_s) || 30;
+const WEDGE_S = 0.4;        // land just inside the newest video, not exactly on its last frame
+const WQUEUE_MAX = 3;       // more than this waiting means we are behind: skip to the newest
 const wPlayers = () => [$("#wVideo"), $("#wVideo2")];
 function wStop() {
   clearTimeout(W.timer); W.timer = null; W.key = null; W.queue = []; W.seen.clear(); W.chat = []; W.playing = null;
+  W.pending = []; W.fetching = false; W.mse = false; W.started = false; W.sb = null;
+  if (W.ms && W.ms.readyState === "open") { try { W.ms.endOfStream(); } catch {} }
+  W.ms = null;
   for (const v of wPlayers()) { v.pause(); v.removeAttribute("src"); v.load(); v.onended = null; }
   $("#wFrame").src = "about:blank";
 }
@@ -1844,6 +1859,7 @@ async function openWatch(key) {
   $("#watch").classList.add("show"); $("#wFrame").hidden = true;
   wPlayers().forEach((v, i) => { v.hidden = false; v.classList.toggle("on", i === 0); v.volume = +$("#wVol").value; });
   $("#wChat").innerHTML = ""; $("#wHud").innerHTML = ""; $("#wSpark").innerHTML = ""; $("#wClips").innerHTML = "";
+  wStartMse();
   wTick();
 }
 async function wTick() {
@@ -1857,13 +1873,81 @@ async function wTick() {
   $("#wMode").textContent = W.official ? "What BURN-IN sees" : (d.platform === "kick" ? "Official player" : "Open on Twitch");
   const fresh = d.segments.filter(sg => !W.seen.has(sg.name));
   fresh.forEach(sg => { W.seen.add(sg.name); W.queue.push(sg.name); });
-  if (W.queue.length > 3) W.queue = W.queue.slice(-2);          // fell behind: jump near live
-  if (!W.playing && W.queue.length && !W.official) wNext();
+  if (!W.started && W.queue.length) { W.queue = W.queue.slice(-1); W.started = true; }  // open at the live edge
+  if (W.queue.length > WQUEUE_MAX) W.queue = W.queue.slice(-1);  // fell behind: skip to the newest
+  if (W.official) { /* the platform's own player is showing */ }
+  else if (W.mse) wPump();
+  else if (!W.playing && W.queue.length) wNext();
   else wPreload();
   wHud(d); wChat(d.chat); wSide(d);
   W.timer = setTimeout(wTick, (state && state.viewer_poll_ms) || 1500);
 }
 const wUrl = name => `/media/live/${encodeURIComponent(W.key)}/${name}.mp4`;
+function wStartMse() {
+  const type = wMseType();
+  if (!type) return false;                   // no MediaSource: the swap player below still works
+  const v = $("#wVideo"), ms = W.ms = new MediaSource();
+  v.src = URL.createObjectURL(ms);
+  ms.addEventListener("sourceopen", () => {
+    URL.revokeObjectURL(v.src);
+    try {
+      const sb = W.sb = ms.addSourceBuffer(type);
+      // Every segment starts its own clock at zero. "sequence" tells the browser to lay each one
+      // after the last instead of on top of it, which is what makes playback continuous.
+      sb.mode = "sequence";
+      sb.addEventListener("updateend", wPump);
+      sb.addEventListener("error", wFallback);
+      wPump();
+    } catch (e) { report_watch(e); wFallback(); }
+  }, {once: true});
+  W.mse = true;
+  return true;
+}
+function wPump() {
+  const sb = W.sb;
+  if (!W.mse || !sb || sb.updating) return;
+  if (W.pending.length) {
+    try { sb.appendBuffer(W.pending.shift()); } catch (e) { report_watch(e); wFallback(); }
+    return;                                  // updateend calls us back
+  }
+  wTrim(); wCatchUp();
+  if (!W.fetching && W.queue.length) wFetch();
+}
+async function wFetch() {
+  if (W.fetching || !W.queue.length) return;
+  W.fetching = true;
+  const name = W.queue.shift(), key = W.key;
+  try {
+    const r = await fetch(wUrl(name));
+    if (!r.ok) throw new Error(`segment ${name}: ${r.status}`);
+    const buf = await r.arrayBuffer();
+    if (key !== W.key) return;               // the viewer moved on while we were fetching
+    W.pending.push(buf); W.playing = name;
+  } catch (e) { report_watch(e); }
+  finally { W.fetching = false; }
+  wPump();
+  const v = $("#wVideo");
+  if (v.paused) v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+}
+function wTrim() {                           // drop what has been watched, so memory stays flat
+  const sb = W.sb, v = $("#wVideo");
+  if (!sb || sb.updating || !sb.buffered.length) return;
+  const cut = v.currentTime - wKeep();
+  if (cut > 1 && sb.buffered.start(0) < cut) { try { sb.remove(0, cut); } catch (e) { report_watch(e); } }
+}
+function wCatchUp() {                        // a stall must not leave us playing old video forever
+  const sb = W.sb, v = $("#wVideo");
+  if (!sb || !sb.buffered.length) return;
+  const live = sb.buffered.end(sb.buffered.length - 1);
+  if (live - v.currentTime > wMaxLag()) v.currentTime = Math.max(0, live - WEDGE_S);
+}
+function wFallback() {                       // MediaSource refused this stream: use the swap player
+  if (!W.mse) return;
+  W.mse = false; W.sb = null; W.ms = null; W.pending = [];
+  const v = $("#wVideo");
+  try { v.removeAttribute("src"); v.load(); } catch (e) { report_watch(e); }
+  if (W.queue.length) wNext();
+}
 function wPreload() {                        // the idle player loads the next segment in advance
   const [a, b] = wPlayers(), idle = a.classList.contains("on") ? b : a;
   if (W.queue.length && idle.dataset.seg !== W.queue[0]) { idle.dataset.seg = W.queue[0]; idle.src = wUrl(W.queue[0]); idle.load(); }
