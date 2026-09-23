@@ -28,3 +28,5 @@ tokens.json
 release_config.local.json
 *.crt
 *.ts.net.*
+
+phone/package-lock.json

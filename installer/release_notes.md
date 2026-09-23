@@ -7,6 +7,9 @@
   entry, so you end up with one app.
 - Your data moves itself on first start, from `%LOCALAPPDATA%\ClipBot` to `%LOCALAPPDATA%\Ashvane`,
   with every stored path updated. Keys and tokens keep working.
+- The phone stays signed in: its sign-in is no longer ended by the 30-minute idle lock.
+- **Test connection** (Settings → Dashboard) shows exactly what to type on the phone.
+- The live viewer plays smoothly a steady few seconds behind live instead of stalling.
 - The phone assistant can ask the PC to look at pictures and watch videos. It waits its turn
   behind clipping on the GPU.
 

@@ -25,6 +25,23 @@ clashed with a clothing trademark and said nothing good about the product.
 - Updating from BURN-IN removes its old program folder, shortcuts and autostart entry, so there is
   one app, not two. The phone-remote firewall script also removes the rule under the old name.
 
+**Phone connection**
+
+- The phone kept getting signed out. Its sign-in was an ordinary dashboard session, so the
+  30-minute idle auto-lock ended it whenever you weren't looking at the PC. The phone app now gets
+  its own device sign-in that lasts 90 days (Settings → App) and is exempt from the idle lock;
+  the phone has its own Face ID / fingerprint lock instead.
+- **Test connection** in Settings → Dashboard (and in the Live desk's Phone remote box) tries
+  every way the phone can reach this PC - home Wi-Fi, Tailscale address, Tailscale name - and
+  says exactly what to type on the phone, or what to fix.
+- The phone-connection help is now three numbered steps.
+
+**Live viewer**
+
+- Smoother. It used to jump to the last captured frame whenever it fell behind and then stall
+  waiting for the next segment. It now holds a steady distance behind live (10 s by default,
+  Settings → Viewer) by playing a few percent faster or slower, and only jumps after a real stall.
+
 **For the phone assistant**
 
 - The PC can now look at pictures and watch videos for the phone: `/api/assistant/upload`,
@@ -131,6 +148,16 @@ First release.
 - New name and look: **Ashvane**, with the same Blender-rendered icon as the desktop app and a new
   launch screen. It installs as a new app (new app ID), so after installing it, sign in to your
   PC once more and delete the old BURN-IN app. The assistant's model downloads again.
+- **Redesigned throughout.** One tab bar - Desk, Assistant, Code - with a calmer, warmer look:
+  real icons, sentence-case labels, one accent colour, cards instead of boxed-in panels.
+- **Code is now its own workspace**, not a copy of the chat: projects stored on the phone, a file
+  tree, an editor with line numbers, tabs, undo and a row of the symbols phone keyboards hide,
+  and an **agent** that reads your files and proposes changes as diffs you apply or discard.
+  Web projects run right in the app; JavaScript runs with its console shown. It uses the phone's
+  own model, or your PC's when you choose it.
+- **Stays signed in to your PC** (the PC keeps the phone's sign-in for 90 days), and **Test
+  connection** on the sign-in screen and the Live desk shows step by step what works and what
+  to fix.
 
 ### 1.0.17 — 2026-09-23
 

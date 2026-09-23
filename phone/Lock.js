@@ -8,13 +8,14 @@
  * passcode set at all cannot be protected this way, so it is simply not locked.
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Image, Pressable, Text, View } from "react-native";
+import { AppState, Image, Platform, Text, View } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
+import { Button, C, t } from "./theme";
 
 const LOCK_AFTER_MS = 60000;      // away longer than this and it asks again
 
 export function useLock() {
-  const [locked, setLocked] = useState(true);
+  const [locked, setLocked] = useState(Platform.OS !== "web");   // a browser preview has no lock
   const [protectable, setProtectable] = useState(true);
   const [problem, setProblem] = useState("");
   const leftAt = useRef(0);
@@ -41,7 +42,7 @@ export function useLock() {
     }
   }, []);
 
-  useEffect(() => { unlock(); }, [unlock]);
+  useEffect(() => { if (Platform.OS !== "web") unlock(); }, [unlock]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
@@ -59,19 +60,15 @@ export function useLock() {
   return { locked, unlock, problem };
 }
 
-export function LockScreen({ onUnlock, problem, ui }) {
-  const { s, C } = ui;
+export function LockScreen({ onUnlock, problem }) {
   return (
-    <View style={[s.screen, { alignItems: "center", justifyContent: "center", padding: 30 }]}>
-      <Image source={require("./assets/icon.png")} style={{ width: 96, height: 96, borderRadius: 22 }} />
-      <Text style={[s.signTitle, { marginTop: 18 }]}>Locked</Text>
-      <Text style={[s.help, { textAlign: "center", marginTop: 6 }]}>
+    <View style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 30 }}>
+      <Image source={require("./assets/icon.png")} resizeMode="contain" style={{ width: 88, height: 88 }} />
+      <Text style={[t.title, { marginTop: 18 }]}>Ashvane is locked</Text>
+      <Text style={[t.muted, { textAlign: "center", marginTop: 6 }]}>
         Unlock with Face ID, your fingerprint or your passcode.
       </Text>
-      <Pressable onPress={onUnlock} style={{ marginTop: 22, paddingHorizontal: 28, paddingVertical: 12,
-        borderRadius: 12, backgroundColor: C.chrome }}>
-        <Text style={{ color: C.base, fontWeight: "700", letterSpacing: 1 }}>UNLOCK</Text>
-      </Pressable>
-      {!!problem && <Text style={[s.error, { marginTop: 14, textAlign: "center" }]}>{problem}</Text>}
+      <Button label="Unlock" icon="lock-open-outline" kind="primary" onPress={onUnlock} style={{ marginTop: 24, alignSelf: "stretch" }} />
+      {!!problem && <Text style={[t.error, { marginTop: 14, textAlign: "center" }]}>{problem}</Text>}
     </View>);
 }

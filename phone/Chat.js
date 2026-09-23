@@ -11,6 +11,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { FILE_TEXT_MAX, importSkillFromUrl, newId, parseSkillMd } from "./brain";
+import { C, MONO } from "./theme";
 
 const TEXT_TYPES = /\.(txt|md|markdown|csv|json|js|jsx|ts|tsx|py|html|css|xml|yml|yaml|log|ini|sh|java|c|cpp|h|cs|go|rs|rb|php|swift|kt|sql)$/i;
 const URL_RE = /https?:\/\/\S+/i;
@@ -19,7 +20,7 @@ const WATCH_TIMEOUT_MS = 330000; // the PC fetches, looks and listens: give it t
 
 /* ------------------------------------------------------------------ messages with code blocks */
 export function MessageBody({ text, mine, ui }) {
-  const { s, C } = ui;
+  const { s } = ui;
   const parts = String(text || "").split(/```(\w*)\n?([\s\S]*?)```/g);
   const out = [];
   for (let i = 0; i < parts.length; i += 3) {
@@ -29,16 +30,16 @@ export function MessageBody({ text, mine, ui }) {
     if (i + 2 < parts.length) {
       const lang = parts[i + 1] || "code", code = parts[i + 2].replace(/\n$/, "");
       out.push(
-        <View key={`c${i}`} style={{ backgroundColor: C.base, borderRadius: 8, marginVertical: 6,
-          borderWidth: 1, borderColor: C.plate3 }}>
+        <View key={`c${i}`} style={{ backgroundColor: C.bg, borderRadius: 8, marginVertical: 6,
+          borderWidth: 1, borderColor: C.s3 }}>
           <View style={{ flexDirection: "row", paddingHorizontal: 10, paddingTop: 6 }}>
             <Text style={[s.label, { flex: 1 }]}>{lang}</Text>
             <Pressable onPress={() => Share.share({ message: code })} hitSlop={8}>
-              <Text style={[s.label, { color: C.chrome }]}>Share</Text>
+              <Text style={[s.label, { color: C.ember }]}>Share</Text>
             </Pressable>
           </View>
           <ScrollView horizontal>
-            <Text selectable style={{ fontFamily: "Menlo", fontSize: 12, color: C.text, padding: 10 }}>
+            <Text selectable style={{ fontFamily: MONO, fontSize: 12, color: C.ink, padding: 10 }}>
               {code}
             </Text>
           </ScrollView>
@@ -50,7 +51,7 @@ export function MessageBody({ text, mine, ui }) {
 
 /* ------------------------------------------------------------------ skill bar */
 export function SkillBar({ skills, picked, onPick, ui }) {
-  const { s, C } = ui;
+  const { s } = ui;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: 10, paddingVertical: 6, gap: 6 }}>
@@ -59,8 +60,8 @@ export function SkillBar({ skills, picked, onPick, ui }) {
         return (
           <Pressable key={k.id} onPress={() => onPick(on ? null : k)}
             style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1,
-              borderColor: on ? C.chrome : C.plate3, backgroundColor: on ? C.plate3 : "transparent" }}>
-            <Text style={[s.label, { color: on ? C.text : C.muted }]}>/{k.name}</Text>
+              borderColor: on ? C.ember : C.s3, backgroundColor: on ? C.s3 : "transparent" }}>
+            <Text style={[s.label, { color: on ? C.ink : C.ink2 }]}>/{k.name}</Text>
           </Pressable>);
       })}
     </ScrollView>);
@@ -90,7 +91,7 @@ export async function pickAttachment(kind) {
 }
 
 export function AttachRow({ items, onRemove, ui }) {
-  const { s, C } = ui;
+  const { s } = ui;
   if (!items.length) return null;
   const icon = { image: "Picture", video: "Video", file: "File" };
   return (
@@ -98,7 +99,7 @@ export function AttachRow({ items, onRemove, ui }) {
       {items.map(a => (
         <Pressable key={a.id} onPress={() => onRemove(a.id)}
           style={{ flexDirection: "row", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
-            backgroundColor: C.plate2, borderWidth: 1, borderColor: C.plate3 }}>
+            backgroundColor: C.s2, borderWidth: 1, borderColor: C.s3 }}>
           <Text style={s.label}>{icon[a.kind]}: {a.name.slice(0, 22)}  ✕</Text>
         </Pressable>))}
     </View>);
@@ -171,7 +172,7 @@ export async function prepareTurn({ text, attachments, skill, linked, host, toke
 
 /* ------------------------------------------------------------------ chat history */
 export function History({ chats, current, onOpen, onNew, onDelete, ui }) {
-  const { s, C, Btn } = ui;
+  const { s, Btn } = ui;
   return (
     <ScrollView contentContainerStyle={{ padding: 14 }}>
       <Btn label="New chat" kind="primary" onPress={onNew} />
@@ -181,8 +182,8 @@ export function History({ chats, current, onOpen, onNew, onDelete, ui }) {
           onLongPress={() => Alert.alert("Delete this chat?", c.title, [
             { text: "Cancel", style: "cancel" },
             { text: "Delete", style: "destructive", onPress: () => onDelete(c.id) }])}
-          style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.plate3 }}>
-          <Text style={[s.monName, c.id === current && { color: C.chrome }]}>{c.title}</Text>
+          style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: C.s3 }}>
+          <Text style={[s.monName, c.id === current && { color: C.ember }]}>{c.title}</Text>
           <Text style={s.help}>{new Date(c.updated).toLocaleString()} · {c.messages.length} messages</Text>
         </Pressable>))}
       {!!chats.length && <Text style={[s.help, { marginTop: 10 }]}>Hold a chat to delete it.</Text>}
@@ -191,7 +192,7 @@ export function History({ chats, current, onOpen, onNew, onDelete, ui }) {
 
 /* ------------------------------------------------------------------ instructions, rules, skills */
 export function BrainEditor({ brain, skills, onChange, ui }) {
-  const { s, C, Btn, Plate } = ui;
+  const { s, Btn, Plate } = ui;
   const [draft, setDraft] = useState({ name: "", description: "", body: "" });
   const [rule, setRule] = useState({ name: "", text: "" });
   const [importing, setImporting] = useState("");
@@ -201,7 +202,7 @@ export function BrainEditor({ brain, skills, onChange, ui }) {
     <>
       <Text style={[s.label, { marginTop: 10 }]}>{label}</Text>
       <TextInput value={value} onChangeText={onText} multiline numberOfLines={lines}
-        placeholderTextColor={C.faint} style={[s.input, { minHeight: lines * 20, textAlignVertical: "top" }]} />
+        placeholderTextColor={C.ink3} style={[s.input, { minHeight: lines * 20, textAlignVertical: "top" }]} />
     </>);
 
   const addSkill = (sk) => {
@@ -239,7 +240,7 @@ export function BrainEditor({ brain, skills, onChange, ui }) {
             <Pressable style={{ flex: 1 }} onLongPress={() => set({ rules: brain.rules.filter(x => x.id !== r.id) })}>
               <Text style={s.monName}>{r.name}</Text><Text style={s.help}>{r.text}</Text>
             </Pressable>
-            <Switch value={r.on} trackColor={{ true: C.chrome, false: C.plate3 }} thumbColor="#fff"
+            <Switch value={r.on} trackColor={{ true: C.ember, false: C.s4 }} thumbColor="#fff"
               onValueChange={(on) => set({ rules: brain.rules.map(x => x.id === r.id ? { ...x, on } : x) })} />
           </View>))}
         {field("New rule name", rule.name, (t) => setRule({ ...rule, name: t }), 1)}
@@ -266,7 +267,7 @@ export function BrainEditor({ brain, skills, onChange, ui }) {
               <Text style={s.help}>{k.description}</Text>
             </Pressable>
             {k.starter && (
-              <Switch value trackColor={{ true: C.chrome, false: C.plate3 }} thumbColor="#fff"
+              <Switch value trackColor={{ true: C.ember, false: C.s4 }} thumbColor="#fff"
                 onValueChange={() => set({ hidden: [...brain.hidden, k.id] })} />)}
           </View>))}
         {!!brain.hidden.length && (

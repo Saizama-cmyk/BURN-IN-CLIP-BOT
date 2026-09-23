@@ -69,7 +69,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-font"
     ],
     "notification": {
       "icon": "./assets/icon-notification.png",
