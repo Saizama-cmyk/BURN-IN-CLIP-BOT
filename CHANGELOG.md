@@ -8,6 +8,28 @@ Dates are the day the release was tagged.
 
 ## Desktop
 
+### 1.0.3 — 2026-09-23
+
+**Fixed**
+
+- The live viewer showed nothing. Stream segments start mid-audio-frame, so their audio was
+  copied out with no valid profile; the browser's streaming player rejected the whole thing.
+  The viewer's audio is now re-encoded (cached, about 0.16s a segment), and the player steps over
+  the hairline gaps between segments instead of freezing in them.
+- Storage no longer fills up in hours. 20.9 GB of raw cuts had piled up: rejected cuts were kept
+  a day, the clean-up ran hourly, and every passing clip kept its source next to the finished
+  video. Rejected cuts now go after 15 minutes, clean-up runs every 5, leftovers go after 30, and
+  only the finished clip is kept.
+- A platform that refuses your keys is asked once, not every minute. The Live tab says to paste
+  them again, and discovery resumes as soon as you do.
+
+**Changed**
+
+- Titles and captions hook instead of narrate: short, payoff first, a question the clip answers.
+  "Willneff Gets Confused Why Bits Went to His Chat, Not the Charity Stream" is now
+  "Willneff's chat was LMAO about bits".
+- The top bar no longer has the Local workspace label or the Desktop pet and Open clips buttons.
+
 ### 1.0.2 — 2026-09-22
 
 Fixes for the app falling behind live and reporting dozens of clips "waiting".
@@ -69,6 +91,12 @@ First release.
 - Judge profiles that adapt to your GPU, and automatic updates.
 
 ## Phone
+
+### 1.0.16 — 2026-09-23
+
+- The assistant works without a PC. The app opens straight away; Remote shows the sign-in until
+  you connect, and Assistant runs on the phone on its own.
+- New store page: full-size icon, four screenshots and a proper description.
 
 ### 1.0.13 — 2026-09-22
 

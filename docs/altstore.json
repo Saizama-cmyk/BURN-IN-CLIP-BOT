@@ -1,22 +1,25 @@
 {
-  "name": "BURN-IN Remote",
+  "name": "BURN-IN",
   "identifier": "os.spike.burnin",
-  "subtitle": "Run your clip desk from your phone.",
-  "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark-96.png",
+  "subtitle": "Your clip desk and a private AI, in your pocket.",
+  "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/phone/assets/icon-ios.png",
   "website": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT",
   "tintColor": "DDE1E7",
   "apps": [
     {
-      "name": "BURN-IN Remote",
+      "name": "BURN-IN",
       "bundleIdentifier": "os.spike.burnin.remote",
       "developerName": "BURN-IN",
-      "subtitle": "Status, streams, clips and post-now, over your own Wi-Fi.",
-      "localizedDescription": "The BURN-IN desk on your phone: what it is watching, what it has cut, and a post-now button. Talks to the app on your PC over your own network - no account, nothing leaves your Wi-Fi.",
-      "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark-96.png",
+      "subtitle": "Your clip desk and a private AI, in your pocket.",
+      "localizedDescription": "BURN-IN watches the biggest Twitch and Kick streams on your PC, catches the moments chat loses it over, and turns them into vertical clips ready to post. This app puts the whole desk in your pocket.\n\nREMOTE\n- See every stream it is watching, with viewers and how hot chat is running\n- Look through the clips it made and post the good ones straight away\n- Change the look of your clips in Studio, and every setting, from the couch\n- Pause and resume capture, and read what it is doing and why\n\nASSISTANT\n- A private AI that runs on the phone itself: it checks your phone and downloads the largest model that will run well on it\n- Works with no PC and no internet once the model is on the phone\n- Connected to your PC, it can use the bigger model there instead\n\nPRIVATE BY DESIGN\nNo account and no cloud. The app talks only to your own PC, on your Wi-Fi or over Tailscale, and asks for your BURN-IN password.",
+      "iconURL": "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/phone/assets/icon-ios.png",
       "tintColor": "DDE1E7",
       "category": "utilities",
       "screenshotURLs": [
-        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark.png"
+        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/docs/listing/screen-1.png",
+        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/docs/listing/screen-2.png",
+        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/docs/listing/screen-3.png",
+        "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/docs/listing/screen-4.png"
       ],
       "version": "1.0.15",
       "versionDate": "2026-09-23",

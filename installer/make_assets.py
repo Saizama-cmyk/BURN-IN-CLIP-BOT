@@ -137,6 +137,60 @@ def phone_icons() -> None:
     logger.info("phone and web icons rendered from mark.png")
 
 
+LISTING_W, LISTING_H = 1290, 2796     # the size sideloaders show for a 6.7" iPhone
+LISTING_CARDS = (
+    ("Your clip desk.", "Anywhere.",
+     "What BURN-IN is watching, what it has cut and what is about to post - live, on your phone."),
+    ("Every stream,", "one glance.",
+     "The streams on the board with their viewers and how hot chat is running right now."),
+    ("Post from", "your pocket.",
+     "Look over the clips it made and send the good ones out without going near the PC."),
+    ("A private AI.", "On the phone.",
+     "It picks the right model for your phone and runs it offline. No account, no cloud."),
+)
+
+
+def _wrap(draw: ImageDraw.ImageDraw, text: str, f, width: int) -> list[str]:
+    lines, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if draw.textlength(trial, font=f) <= width:
+            line = trial
+        else:
+            lines.append(line)
+            line = word
+    return lines + ([line] if line else [])
+
+
+def listing_cards() -> None:
+    """The pictures a sideloader shows on the app's page, one per thing the app does.
+
+    Drawn from the same background and mark as everything else, so the store page, the icon on
+    the home screen and the app itself all look like one product."""
+    out = ROOT / "docs" / "listing"
+    out.mkdir(parents=True, exist_ok=True)
+    bg = Image.open(STATIC / "bg.jpg").convert("RGBA")
+    mark = Image.open(STATIC / "mark.png").convert("RGBA")
+    scale = max(LISTING_W / bg.width, LISTING_H / bg.height)
+    base = bg.resize((int(bg.width * scale) + 1, int(bg.height * scale) + 1), Image.LANCZOS)
+    base = base.crop((0, 0, LISTING_W, LISTING_H))
+    base = Image.alpha_composite(base, Image.new("RGBA", base.size, (5, 5, 7, 170)))
+    side = LISTING_W // 3
+    body_font = font(54)
+    for i, (head, head2, body) in enumerate(LISTING_CARDS, 1):
+        card = base.copy()
+        card.alpha_composite(mark.resize((side, side), Image.LANCZOS), ((LISTING_W - side) // 2, 360))
+        chrome_text(card, (110, 1020), head, 120)
+        chrome_text(card, (110, 1160), head2, 120)
+        draw = ImageDraw.Draw(card)
+        y = 1400
+        for line in _wrap(draw, body, body_font, LISTING_W - 220):
+            draw.text((110, y), line, font=body_font, fill=(186, 190, 198))
+            y += 78
+        card.convert("RGB").save(out / f"screen-{i}.png", optimize=True)
+    logger.info("store listing cards written to %s", out)
+
+
 def legal_copies() -> None:
     """The app shows the same LICENSE/NOTICE/TERMS/PRIVACY that ship in the repo."""
     dst = ROOT / "clipbot" / "dashboard" / "static" / "legal"
@@ -167,6 +221,7 @@ def main() -> None:
     version_file()
     wizard_images()
     phone_icons()
+    listing_cards()
     logger.info("installer assets ready (version %s)", __version__)
 
 

@@ -22,9 +22,29 @@ PRODUCT = "BURN-IN"          # kept in step with clipbot/config.py by the brand 
 OUT = ROOT / "docs" / "sideload.json"
 ALIAS = ROOT / "docs" / "altstore.json"   # same feed, the name older tools expect
 BUNDLE_ID = "os.spike.burnin.remote"
-ICON = "https://raw.githubusercontent.com/{repo}/main/clipbot/dashboard/static/art/mark-96.png"
-SCREENSHOT = "https://raw.githubusercontent.com/{repo}/main/clipbot/dashboard/static/art/mark.png"
+# full-size and opaque: sideloaders show this large, and iOS turns transparency black
+ICON = "https://raw.githubusercontent.com/{repo}/main/phone/assets/icon-ios.png"
+SCREENSHOT = "https://raw.githubusercontent.com/{repo}/main/docs/listing/screen-{n}.png"
+SCREENSHOTS = 4                            # docs/listing/screen-1..4.png, from make_assets.py
 TINT = "DDE1E7"
+DESCRIPTION = (
+    f"{PRODUCT} watches the biggest Twitch and Kick streams on your PC, catches the moments chat "
+    "loses it over, and turns them into vertical clips ready to post. This app puts the whole "
+    "desk in your pocket.\n\n"
+    "REMOTE\n"
+    "- See every stream it is watching, with viewers and how hot chat is running\n"
+    "- Look through the clips it made and post the good ones straight away\n"
+    "- Change the look of your clips in Studio, and every setting, from the couch\n"
+    "- Pause and resume capture, and read what it is doing and why\n\n"
+    "ASSISTANT\n"
+    "- A private AI that runs on the phone itself: it checks your phone and downloads the "
+    "largest model that will run well on it\n"
+    "- Works with no PC and no internet once the model is on the phone\n"
+    "- Connected to your PC, it can use the bigger model there instead\n\n"
+    "PRIVATE BY DESIGN\n"
+    "No account and no cloud. The app talks only to your own PC, on your Wi-Fi or over "
+    "Tailscale, and asks for your BURN-IN password."
+)
 MIN_IOS = "15.1"
 
 
@@ -39,26 +59,23 @@ def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
     if not version[:1].isdigit():
         version = app_version()
     return {
-        "name": f"{PRODUCT} Remote",
+        "name": PRODUCT,
         "identifier": "os.spike.burnin",
-        "subtitle": "Run your clip desk from your phone.",
+        "subtitle": "Your clip desk and a private AI, in your pocket.",
         "iconURL": ICON.format(repo=repo),
         "website": f"https://github.com/{repo}",
         "tintColor": TINT,
         "apps": [{
-            "name": f"{PRODUCT} Remote",
+            "name": PRODUCT,
             "bundleIdentifier": BUNDLE_ID,
-            "developerName": "BURN-IN",
-            "subtitle": "Status, streams, clips and post-now, over your own Wi-Fi.",
-            "localizedDescription": (
-                f"The {PRODUCT} desk on your phone: what it is watching, what it has cut, and a "
-                "post-now button. Talks to the app on your PC over your own network - no account, "
-                "nothing leaves your Wi-Fi."
-            ),
+            "developerName": PRODUCT,
+            "subtitle": "Your clip desk and a private AI, in your pocket.",
+            "localizedDescription": DESCRIPTION,
             "iconURL": ICON.format(repo=repo),
             "tintColor": TINT,
             "category": "utilities",
-            "screenshotURLs": [SCREENSHOT.format(repo=repo)],
+            "screenshotURLs": [SCREENSHOT.format(repo=repo, n=n)
+                               for n in range(1, SCREENSHOTS + 1)],
             # The same release stated twice. Newer sideloaders read "versions"; older AltStore
             # builds read these flat fields and refuse the install with "version does not match"
             # when they are missing. Writing both means any tool can install it.

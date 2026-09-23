@@ -560,6 +560,7 @@ function SettingsTab({ host, token, onError, toast }) {
    it - nothing to pick. The PC's much larger model stays available as a fallback for phones
    that cannot host one, or when you want the better answer. */
 function Assistant({ host, token, onError }) {
+  const linked = !!(host && token);           // no PC: the phone's own model is the only option
   const [profile] = useState(() => deviceProfile());
   const [model, setModel] = useState(null);
   const [ready, setReady] = useState(false);
@@ -612,6 +613,11 @@ function Assistant({ host, token, onError }) {
       if (onPhone && ready && context.current) {
         const answer = await reply(context.current, next);
         setTurns([...next, { role: "assistant", content: answer || "(no answer)" }]);
+      } else if (!linked) {
+        setTurns([...next, { role: "assistant", content: model
+          ? "Download the model above first - it runs right here, no PC needed."
+          : "This phone cannot run a model of its own. Connect to your PC under Remote "
+            + "to use the one there." }]);
       } else {
         const r = await call(host, "/api/chat", {
           token, method: "POST", body: { messages: next }, timeout: CHAT_TIMEOUT_MS,
@@ -666,13 +672,14 @@ function Assistant({ host, token, onError }) {
               </>
             ) : (
               <Text style={[s.help, { marginTop: 10 }]}>
-                This phone is too small to host a model of its own, so the assistant uses the one
-                already loaded on your PC instead.
+                {linked
+                  ? "This phone is too small to host a model of its own, so the assistant uses the one already loaded on your PC instead."
+                  : "This phone is too small to host a model of its own. Connect to your PC under Remote to use the one there."}
               </Text>
             )}
             {!!problem && <Text style={s.error}>{problem}</Text>}
 
-            {(ready || !model) && (
+            {linked && (ready || !model) && (
               <View style={[s.row, { marginTop: 14 }]}>
                 <Text style={[s.monName, { flex: 1 }]}>Answer on this phone</Text>
                 <Switch value={onPhone && !!model} disabled={!model}
@@ -680,7 +687,7 @@ function Assistant({ host, token, onError }) {
                   onValueChange={setOnPhone} />
               </View>
             )}
-            {(ready || !model) && (
+            {linked && (ready || !model) && (
               <Text style={s.help}>
                 {onPhone && model
                   ? "Private and offline, but a phone-sized model."
@@ -700,7 +707,8 @@ function Assistant({ host, token, onError }) {
 
       <View style={s.composer}>
         <TextInput value={draft} onChangeText={setDraft}
-          placeholder={onPhone && ready ? "Ask this phone…" : "Ask the PC's model…"}
+          placeholder={(onPhone || !linked) && ready ? "Ask this phone…"
+            : linked ? "Ask the PC's model…" : "Load a model to start…"}
           placeholderTextColor={C.faint} style={[s.input, { flex: 1, marginTop: 0 }]}
           multiline onSubmitEditing={send} returnKeyType="send" blurOnSubmit />
         <Btn label="Send" kind="primary" onPress={send}
@@ -790,16 +798,9 @@ export default function App() {
   if (!ready) {
     return <View style={[s.screen, { justifyContent: "center" }]}><ActivityIndicator color={C.chrome} /></View>;
   }
-  if (!host || !token) {
-    return (
-      <SafeAreaProvider>
-        <SafeAreaView style={s.screen} edges={["top", "bottom"]}>
-          <StatusBar barStyle="light-content" />
-          <SignIn onDone={(h, t) => { setHost(h); setToken(t); }} />
-        </SafeAreaView>
-      </SafeAreaProvider>
-    );
-  }
+  // Not connected is not a dead end: the assistant runs on the phone by itself, so the app
+  // opens either way. Remote simply shows the sign-in until there is a PC to talk to.
+  const linked = !!(host && token);
 
   return (
     <SafeAreaProvider>
@@ -809,7 +810,7 @@ export default function App() {
           <Image source={require("./assets/icon.png")} style={s.headerMark} />
           <Text style={s.headerTitle}>Burn-in</Text>
           <View style={{ flex: 1 }} />
-          <Pressable onPress={signOut} hitSlop={10}><Text style={s.label}>Sign out</Text></Pressable>
+          {linked && <Pressable onPress={signOut} hitSlop={10}><Text style={s.label}>Sign out</Text></Pressable>}
         </View>
 
         <View style={s.master}>
@@ -827,13 +828,14 @@ export default function App() {
             <Text style={s.updateText}>Version {update} is out - tap to get it</Text>
           </Pressable>
         )}
-        {offline && (
+        {linked && offline && (
           <View style={s.offline}>
             <Text style={s.offlineText}>Cannot reach the PC — same Wi-Fi, BURN-IN running?</Text>
           </View>
         )}
 
-        {assistant ? <Assistant host={host} token={token} onError={() => setOffline(true)} /> : (
+        {assistant ? <Assistant host={host} token={token} onError={() => setOffline(true)} />
+          : !linked ? <SignIn onDone={(h, t) => { setHost(h); setToken(t); }} /> : (
         <ScrollView
           contentContainerStyle={{ padding: 14, paddingBottom: 26 }}
           refreshControl={<RefreshControl tintColor={C.muted} refreshing={refreshing}
@@ -848,7 +850,7 @@ export default function App() {
           {tab === "log" && <Log host={host} token={token} state={state} onError={() => setOffline(true)} />}
         </ScrollView>
         )}
-        {!assistant && (
+        {!assistant && linked && (
         <View style={s.tabs}>
           {[["deck", "Desk"], ["clips", "Clips"], ["studio", "Studio"], ["settings", "Set"],
             ["log", "Log"]].map(([key, label]) => (
