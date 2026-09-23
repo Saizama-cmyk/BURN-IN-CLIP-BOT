@@ -157,8 +157,14 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [version, ios]
-    if: github.ref == 'refs/heads/main'
+    # Waits for Android too. It used to wait only for iOS, so on a run where Android was the
+    # slower of the two - which is most runs - publishing finished first and the release went
+    # out with no .apk at all. `always()` keeps the iPhone build publishable on its own when
+    # Android fails, which is what the "missing if Android failed" line below expects.
+    needs: [version, ios, android]
+    if: |
+      always() && github.ref == 'refs/heads/main'
+      && needs.version.result == 'success' && needs.ios.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
