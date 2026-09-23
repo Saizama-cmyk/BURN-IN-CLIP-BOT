@@ -7,14 +7,22 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Image, KeyboardAvoidingView, Linking, Platform, Pressable,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Platform, Pressable,
   RefreshControl, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
-import { deviceProfile, download, freeBytes, isDownloaded, load, pickModel, reply }
+import { deviceProfile, download, freeBytes, isDownloaded, load, pickModel, reply, SYSTEM }
   from "./localAi";
+import { allSkills, buildSystem, loadBrain, newId, saveBrain, skillFor, titleFrom } from "./brain";
+import { LockScreen, useLock } from "./Lock";
+import { AttachRow, BrainEditor, History, MessageBody, pickAttachment, prepareTurn, SkillBar }
+  from "./Chat";
+
+const CODE_SYSTEM = "You are a careful coding assistant running on this phone. Write complete, "
+  + "working code in fenced code blocks with the language named. Explain briefly what it does and "
+  + "how to run it. When fixing code, show only what changes and why. Say when you are unsure.";
 
 /* ------------------------------------------------------------------ the look: sterling on black */
 const C = {
@@ -559,14 +567,19 @@ function SettingsTab({ host, token, onError, toast }) {
    Runs on the phone. The device is measured once and the best model it can host is chosen for
    it - nothing to pick. The PC's much larger model stays available as a fallback for phones
    that cannot host one, or when you want the better answer. */
-function Assistant({ host, token, onError }) {
+function Assistant({ host, token, onError, mode = "chat" }) {
   const linked = !!(host && token);           // no PC: the phone's own model is the only option
   const [profile] = useState(() => deviceProfile());
   const [model, setModel] = useState(null);
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(-1);
   const [onPhone, setOnPhone] = useState(true);
-  const [turns, setTurns] = useState([]);
+  const [brain, setBrainState] = useState(null);
+  const [chatId, setChatId] = useState(null);
+  const [view, setView] = useState("chat");          // chat | history | brain
+  const [picked, setPicked] = useState(null);
+  const [attached, setAttached] = useState([]);
+  const [streaming, setStreaming] = useState("");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
@@ -604,38 +617,108 @@ function Assistant({ host, token, onError }) {
     setProgress(-1);
   };
 
-  const send = async () => {
-    const text = draft.trim();
-    if (!text || busy) return;
-    const next = [...turns, { role: "user", content: text }];
-    setTurns(next); setDraft(""); setBusy(true);
+  useEffect(() => { loadBrain().then(setBrainState); }, []);
+  const setBrain = (b) => { setBrainState(b); saveBrain(b).catch(() => {}); };
+  const skills = brain ? allSkills(brain) : [];
+  const chats = brain ? brain.chats.filter(c => (c.mode || "chat") === mode) : [];
+  const chat = chats.find(c => c.id === chatId) || null;
+  const turns = chat ? chat.messages : [];
+  const usePhone = (onPhone || !linked) && ready && !!context.current;
+  const ui = { s, C, Btn, Plate };
+
+  const saveTurns = (id, messages, title) => {
+    setBrainState(prev => {
+      const others = prev.chats.filter(c => c.id !== id);
+      const was = prev.chats.find(c => c.id === id);
+      const next = { ...prev, chats: [{ id, mode, title: was?.title || title, updated: Date.now(),
+                                        messages }, ...others] };
+      saveBrain(next).catch(() => {});
+      return next;
+    });
+  };
+
+  const attach = async (kind) => {
     try {
-      if (onPhone && ready && context.current) {
-        const answer = await reply(context.current, next);
-        setTurns([...next, { role: "assistant", content: answer || "(no answer)" }]);
-      } else if (!linked) {
-        setTurns([...next, { role: "assistant", content: model
-          ? "Download the model above first - it runs right here, no PC needed."
-          : "This phone cannot run a model of its own. Connect to your PC under Remote "
-            + "to use the one there." }]);
+      const a = await pickAttachment(kind);
+      if (a) setAttached(prev => [...prev, a]);
+    } catch (e) { setProblem(e.message); }
+  };
+
+  const send = async () => {
+    const typed = draft.trim();
+    if ((!typed && !attached.length) || busy || !brain) return;
+    const { skill, text } = skillFor(typed, skills, picked);
+    const id = chatId || newId();
+    const shown = [typed, ...attached.map(a => `[${a.kind}: ${a.name}]`)].filter(Boolean).join("\n");
+    const history = turns.map(t => ({ role: t.role, content: t.model || t.content }));
+    setChatId(id); setDraft(""); setBusy(true); setProblem(""); setStreaming("");
+    saveTurns(id, [...turns, { role: "user", content: shown }], titleFrom(typed || attached[0]?.name));
+    try {
+      const prepared = await prepareTurn({ text: text || typed, attachments: attached, skill,
+        linked, host, token, call });
+      setAttached([]);
+      const mine = { role: "user", content: shown, model: prepared.content };
+      const msgs = [...history, { role: "user", content: prepared.content }];
+      const system = buildSystem(mode === "code" ? CODE_SYSTEM : SYSTEM, brain, skills, skill);
+      let answer;
+      if (usePhone) {
+        let sofar = "";
+        answer = await reply(context.current, msgs, (tok) => { sofar += tok; setStreaming(sofar); },
+                             system, mode === "code");
+      } else if (linked) {
+        const r = await call(host, "/api/chat", { token, method: "POST",
+          body: { messages: msgs, system }, timeout: CHAT_TIMEOUT_MS });
+        answer = r.ok ? (r.data.reply || "(the model said nothing)")
+                      : (r.data.error || `The PC answered ${r.status}.`);
       } else {
-        const r = await call(host, "/api/chat", {
-          token, method: "POST", body: { messages: next }, timeout: CHAT_TIMEOUT_MS,
-        });
-        setTurns([...next, { role: "assistant", content: r.ok
-          ? (r.data.reply || "(the model said nothing)")
-          : (r.data.error || `The PC answered ${r.status}.`) }]);
+        answer = model ? "Download the model above first - it runs right here, no PC needed."
+          : "This phone cannot run a model of its own. Connect to your PC under Remote to use the one there.";
       }
+      const notes = prepared.notes.length ? `\n\n${prepared.notes.join("\n")}` : "";
+      saveTurns(id, [...turns, mine, { role: "assistant",
+        content: (answer || "(no answer)") + notes, via: usePhone ? "phone" : "pc" }]);
     } catch (e) {
-      setTurns([...next, { role: "assistant", content: `That did not work: ${e.message}` }]);
-      if (!onPhone) onError();
+      saveTurns(id, [...turns, { role: "user", content: shown },
+        { role: "assistant", content: `That did not work: ${e.message}` }]);
+      if (!usePhone) onError();
     }
-    setBusy(false);
+    setStreaming(""); setBusy(false);
   };
 
   const gb = (n) => `${n.toFixed(1)} GB`;
+  const tool = (label, target) => (
+    <Pressable onPress={() => setView(view === target ? "chat" : target)} hitSlop={8}>
+      <Text style={[s.label, view === target && { color: C.text }]}>{label}</Text>
+    </Pressable>);
+  const bar = (
+    <View style={[s.row, { paddingHorizontal: 14, paddingVertical: 8, gap: 18,
+      borderBottomWidth: 1, borderColor: C.line }]}>
+      {tool("Chats", "history")}
+      {tool("Brain", "brain")}
+      <View style={{ flex: 1 }} />
+      <Text style={[s.label, { color: C.faint }]}>{usePhone ? "on this phone" : linked ? "on your PC" : ""}</Text>
+      <Pressable onPress={() => { setChatId(null); setPicked(null); setView("chat"); }} hitSlop={8}>
+        <Text style={[s.label, { color: C.chrome }]}>New</Text>
+      </Pressable>
+    </View>);
+
+  if (!brain) return <ActivityIndicator color={C.chrome} style={{ marginTop: 40 }} />;
+  if (view === "history") {
+    return (<View style={{ flex: 1 }}>{bar}
+      <History chats={chats} current={chatId} ui={ui}
+        onOpen={(id) => { setChatId(id); setView("chat"); }}
+        onNew={() => { setChatId(null); setView("chat"); }}
+        onDelete={(id) => { setBrain({ ...brain, chats: brain.chats.filter(c => c.id !== id) });
+                            if (id === chatId) setChatId(null); }} /></View>);
+  }
+  if (view === "brain") {
+    return (<View style={{ flex: 1 }}>{bar}
+      <BrainEditor brain={brain} skills={skills} onChange={setBrain} ui={ui} /></View>);
+  }
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      {bar}
       <ScrollView ref={scroller} contentContainerStyle={{ padding: 14, paddingBottom: 8 }}
         onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}>
 
@@ -699,20 +782,34 @@ function Assistant({ host, token, onError }) {
 
         {turns.map((t, i) => (
           <View key={i} style={[s.bubble, t.role === "user" ? s.bubbleMine : s.bubbleTheirs]}>
-            <Text style={t.role === "user" ? s.bubbleMineText : s.bubbleText}>{t.content}</Text>
+            <MessageBody text={t.content} mine={t.role === "user"} ui={ui} />
           </View>
         ))}
-        {busy && <View style={[s.bubble, s.bubbleTheirs]}><ActivityIndicator color={C.muted} /></View>}
+        {busy && (
+          <View style={[s.bubble, s.bubbleTheirs]}>
+            {streaming ? <MessageBody text={streaming} ui={ui} /> : <ActivityIndicator color={C.muted} />}
+          </View>)}
       </ScrollView>
+      <SkillBar skills={skills} picked={picked} onPick={setPicked} ui={ui} />
+      <AttachRow items={attached} ui={ui}
+        onRemove={(id) => setAttached(prev => prev.filter(a => a.id !== id))} />
 
       <View style={s.composer}>
+        <Pressable hitSlop={8} style={{ paddingHorizontal: 6, justifyContent: "center" }}
+          onPress={() => Alert.alert("Attach", "", [
+            { text: "Photo", onPress: () => attach("image") },
+            { text: "Video", onPress: () => attach("video") },
+            { text: "File", onPress: () => attach("file") },
+            { text: "Cancel", style: "cancel" }])}>
+          <Text style={{ color: C.chrome, fontSize: 24, lineHeight: 26 }}>+</Text>
+        </Pressable>
         <TextInput value={draft} onChangeText={setDraft}
-          placeholder={(onPhone || !linked) && ready ? "Ask this phone…"
-            : linked ? "Ask the PC's model…" : "Load a model to start…"}
+          placeholder={picked ? `/${picked.name}…` : mode === "code" ? "Describe what to build or paste code…"
+            : usePhone ? "Ask anything, or / for a skill" : linked ? "Ask the PC's model…" : "Load a model to start…"}
           placeholderTextColor={C.faint} style={[s.input, { flex: 1, marginTop: 0 }]}
           multiline onSubmitEditing={send} returnKeyType="send" blurOnSubmit />
         <Btn label="Send" kind="primary" onPress={send}
-          busy={busy} disabled={onPhone && !!model && !ready} />
+          busy={busy} disabled={!usePhone && !linked} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -748,11 +845,13 @@ export default function App() {
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [assistant, setAssistant] = useState(false);
+  const [pane, setPane] = useState("remote");     // remote | chat | code
+  const assistant = pane !== "remote";
   const [note, setNote] = useState("");
   const timer = useRef(null);
   const toast = (msg) => { setNote(msg); setTimeout(() => setNote(""), 2600); };
   const update = useUpdate(Constants.expoConfig?.version || "");
+  const lock = useLock();
 
   useEffect(() => {
     (async () => {
@@ -798,6 +897,13 @@ export default function App() {
   if (!ready) {
     return <View style={[s.screen, { justifyContent: "center" }]}><ActivityIndicator color={C.chrome} /></View>;
   }
+  if (lock.locked) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" />
+        <LockScreen onUnlock={lock.unlock} problem={lock.problem} ui={{ s, C }} />
+      </SafeAreaProvider>);
+  }
   // Not connected is not a dead end: the assistant runs on the phone by itself, so the app
   // opens either way. Remote simply shows the sign-in until there is a PC to talk to.
   const linked = !!(host && token);
@@ -814,10 +920,10 @@ export default function App() {
         </View>
 
         <View style={s.master}>
-          {[["Remote", false], ["Assistant", true]].map(([label, on]) => (
-            <Pressable key={label} onPress={() => setAssistant(on)}
-              style={[s.masterHalf, assistant === on && s.masterOn]} accessibilityRole="tab">
-              <Text style={[s.masterText, assistant === on && { color: C.text }]}>{label}</Text>
+          {[["Remote", "remote"], ["Assistant", "chat"], ["Code", "code"]].map(([label, key]) => (
+            <Pressable key={key} onPress={() => setPane(key)}
+              style={[s.masterHalf, pane === key && s.masterOn]} accessibilityRole="tab">
+              <Text style={[s.masterText, pane === key && { color: C.text }]}>{label}</Text>
             </Pressable>
           ))}
         </View>
@@ -834,7 +940,8 @@ export default function App() {
           </View>
         )}
 
-        {assistant ? <Assistant host={host} token={token} onError={() => setOffline(true)} />
+        {assistant ? <Assistant key={pane} mode={pane} host={host} token={token}
+            onError={() => setOffline(true)} />
           : !linked ? <SignIn onDone={(h, t) => { setHost(h); setToken(t); }} /> : (
         <ScrollView
           contentContainerStyle={{ padding: 14, paddingBottom: 26 }}

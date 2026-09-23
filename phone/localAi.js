@@ -134,14 +134,19 @@ export async function load(model) {
   });
 }
 
-const SYSTEM = "You are a straight-talking assistant running entirely on this phone. Be concise "
-  + "and concrete. Say when you do not know something.";
+export const SYSTEM = "You are a straight-talking assistant running entirely on this phone. Be "
+  + "concise and concrete. Say when you do not know something.";
+const ANSWER_TOKENS = 768;       // a normal answer
+const CODE_TOKENS = 1536;        // code needs room
 
-/** One turn. `history` is [{role, content}, ...]; returns the reply text. */
-export async function reply(context, history, onToken) {
+/**
+ * One turn. `history` is [{role, content}, ...]; `system` carries the person's instructions,
+ * rules and any skill in use; `onToken` gets the answer as it is written. Returns the whole reply.
+ */
+export async function reply(context, history, onToken, system = SYSTEM, long = false) {
   const out = await context.completion({
-    messages: [{ role: "system", content: SYSTEM }, ...history],
-    n_predict: 512,
+    messages: [{ role: "system", content: system }, ...history],
+    n_predict: long ? CODE_TOKENS : ANSWER_TOKENS,
     temperature: 0.7,
     stop: ["<|im_end|>", "<|eot_id|>", "<end_of_turn>"],
   }, (data) => {

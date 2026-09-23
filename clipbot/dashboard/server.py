@@ -469,8 +469,10 @@ def create_app(ctx) -> FastAPI:
         if not history:
             raise HTTPException(422, "nothing to say")
         model = ai.chat_model.strip() or plan(ctx.settings, ctx.pipeline.vram_gb).judge_model
+        # the phone sends its own instructions, rules and skill; the PC's default otherwise
+        system = str(body.get("system") or "").strip()[:ai.transcript_max_chars] or ai.chat_system
         payload = {"model": model, "stream": False,
-                   "messages": [{"role": "system", "content": ai.chat_system}, *history],
+                   "messages": [{"role": "system", "content": system}, *history],
                    "options": {"num_ctx": ai.vision_num_ctx, "temperature": ai.chat_temperature}}
         try:
             r = await ctx.pipeline.http.post(f"{ai.ollama_url.rstrip('/')}/api/chat", json=payload,
@@ -481,6 +483,57 @@ def create_app(ctx) -> FastAPI:
                                 status_code=503)
         reply = (r.json().get("message") or {}).get("content", "").strip()
         return {"reply": reply, "model": model}
+
+    # ------------------------------------------------------------------ phone assistant's eyes
+    # The phone's own model thinks; these only turn a picture or a video into text for it.
+    @app.post("/api/assistant/upload")
+    async def assistant_upload(request: Request, name: str = ""):
+        """A file from the phone, streamed straight to disk. Returns its id."""
+        from ..agent.watch import MB, new_upload, prune_uploads
+        a = ctx.settings.assistant
+        await asyncio.to_thread(prune_uploads, ctx.paths.data, a.uploads_keep_h)
+        uid, dest = new_upload(ctx.paths.data, name)
+        limit, size = a.upload_max_mb * MB, 0
+        try:
+            with dest.open("wb") as fh:
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > limit:
+                        raise HTTPException(413, f"bigger than {a.upload_max_mb} MB")
+                    fh.write(chunk)
+        except HTTPException:
+            dest.unlink(missing_ok=True)
+            raise
+        return {"id": uid, "bytes": size}
+
+    @app.post("/api/assistant/look")
+    async def assistant_look(request: Request):
+        """Pictures in, a description out."""
+        b = await _json(request)
+        images = [str(i) for i in (b.get("images") or []) if isinstance(i, str) and i]
+        a = ctx.settings.assistant
+        if not images:
+            raise HTTPException(422, "no pictures")
+        if len(images) > a.images_max:
+            raise HTTPException(422, f"at most {a.images_max} pictures at once")
+        question = str(b.get("question") or "").strip()
+        prompt = a.look_prompt + (f"\n\nQuestion: {question}" if question else "")
+        try:
+            text = await ctx.pipeline.vision.look(prompt, images)
+        except (httpx.HTTPError, RuntimeError) as exc:
+            return JSONResponse({"error": f"The PC's vision model did not answer: {exc}"},
+                                status_code=503)
+        return {"description": text}
+
+    @app.post("/api/assistant/watch")
+    async def assistant_watch(request: Request):
+        """A video link or upload:<id> in; what is said and shown out."""
+        from ..agent.watch import watch
+        b = await _json(request)
+        result = await watch(ctx, str(b.get("target") or ""))
+        if "error" in result:
+            return JSONResponse(result, status_code=422)
+        return result
 
     @app.get("/api/setup")
     async def setup():

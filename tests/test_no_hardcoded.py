@@ -29,6 +29,7 @@ REVIEWED_CONSTANTS = {
                      "KICK_V1_SEARCH_MAX", "KICK_V1_GONE", "KEYS_REJECTED"},
     "chat.py": {"TWITCH_NICK_DIGITS"},
     "agent/skills.py": {"NAME_MAX", "DESC_MAX"},                        # file-name and field caps
+    "agent/watch.py": {"SAID_MAX", "SCREEN_MAX", "ERR_TAIL"},     # how much text goes back
     "agent/tools.py": {"CLIPS_MAX", "LOG_MAX", "TEXT_MAX", "CLIPS_DEFAULT",
                        "CHAT_SAMPLE_MAX", "LOG_DEFAULT", "LOG_BYTES"},             # how much is shown at once
     "agent/mcpclient.py": {"PROTOCOL", "START_TIMEOUT_S", "CALL_TIMEOUT_S", "LINE_MAX",

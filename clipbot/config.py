@@ -1072,6 +1072,30 @@ class ViewerCfg(Section):
                            "keep the browser's memory flat during a long watch.", ge=5, le=600)
 
 
+class AssistantCfg(Section):
+    """Eyes and ears for the phone's assistant. The phone's own model does the thinking; when you
+    send it a picture or a video it cannot see, the PC's vision model and Whisper turn it into
+    text and hand that back to the phone. These run only when you ask, and wait their turn
+    behind the clip pipeline."""
+    look_prompt: str = F("Describe this image in detail for someone who cannot see it: what is in "
+                         "it, any text word for word, and anything unusual. If there is a question, "
+                         "answer it too.", "Image prompt",
+                         "What the vision model is asked about a picture from the phone.",
+                         widget="textarea")
+    images_max: int = F(4, "Pictures per message", "Most pictures the phone may send at once.",
+                        ge=1, le=12)
+    watch_max_s: int = F(180, "Watch at most (s)", "How much of a video \"watch this\" takes in, "
+                         "from the start.", ge=10, le=3600)
+    watch_frames: int = F(8, "Frames to look at", "Stills pulled from a watched video.",
+                          ge=1, le=24)
+    watch_timeout_s: int = F(300, "Watch timeout (s)", "Give up fetching a video after this long.",
+                             ge=30, le=3600)
+    upload_max_mb: int = F(500, "Largest upload (MB)", "Biggest file the phone may send to the PC.",
+                           ge=1, le=10000)
+    uploads_keep_h: float = F(1.0, "Keep uploads for (h)", "Files sent from the phone are deleted "
+                              "after this long.", ge=0.1, le=168)
+
+
 class SafetyCfg(Section):
     """Keep slurs and hateful language out of everything BURN-IN posts."""
     enabled: bool = F(True, "Content filter", "Mask blocked words in titles, captions, hashtags, "
@@ -1194,6 +1218,7 @@ class Settings(BaseModel):
     studio: StudioCfg = Field(default_factory=StudioCfg, title="Studio")
     safety: SafetyCfg = Field(default_factory=SafetyCfg, title="Safety")
     viewer: ViewerCfg = Field(default_factory=ViewerCfg, title="Live viewer")
+    assistant: AssistantCfg = Field(default_factory=AssistantCfg, title="Phone assistant")
     updates: UpdatesCfg = Field(default_factory=UpdatesCfg, title="Updates")
 
     @model_validator(mode="after")

@@ -138,6 +138,18 @@ class Vision:
                 content = str(r.json().get("message", {}).get("content", "")).strip()
         return content
 
+    async def look(self, prompt: str, images: list[str]) -> str:
+        """Describe still images for the phone's assistant.
+
+        Takes the same lock as the clip judge, so a question from the phone waits its turn
+        behind whatever clip is being judged instead of fighting it for the GPU."""
+        async with self._lock:
+            self.busy = True
+            try:
+                return await self._chat(prompt, images)
+            finally:
+                self.busy = False
+
     async def describe(self, video: Path, duration: float, spike_at: float | None,
                        streamer: str, category: str, save_dir: Path | None = None,
                        frames: int | None = None) -> VisionResult:

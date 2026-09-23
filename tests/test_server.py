@@ -210,3 +210,39 @@ def test_private_host_allowed_only_on_our_port():
     assert not _private_host("8.8.8.8:8787", 8787)      # public address
     assert not _private_host("192.168.0.72:9999", 8787)  # someone else's port
     assert not _private_host("burn-in.example.com:8787", 8787)
+
+
+def test_phone_assistant_upload_look_and_watch(running_app):
+    """The phone's eyes: upload keeps the file, look asks the vision model, watch reports errors."""
+    app, c = running_app
+    r = c.post("/api/assistant/upload?name=clip.mp4", headers=H, content=b"\x00" * 1000)
+    assert r.status_code == 200, r.text
+    uid = r.json()["id"]
+    from clipbot.agent.watch import find_upload
+    saved = find_upload(app.paths.data, uid)
+    assert saved is not None and saved.suffix == ".mp4" and saved.stat().st_size == 1000
+
+    seen = {}
+
+    async def fake_look(prompt, images):
+        seen["prompt"], seen["images"] = prompt, images
+        return "a cat on a keyboard"
+    app.pipeline.vision.look = fake_look
+    r = c.post("/api/assistant/look", headers=H, json={"images": ["aGk="], "question": "what?"})
+    assert r.status_code == 200 and r.json()["description"] == "a cat on a keyboard"
+    assert seen["images"] == ["aGk="] and "Question: what?" in seen["prompt"]
+    assert c.post("/api/assistant/look", headers=H, json={"images": []}).status_code == 422
+
+    r = c.post("/api/assistant/watch", headers=H, json={"target": "not a link"})
+    assert r.status_code == 422 and "error" in r.json()
+    r = c.post("/api/assistant/watch", headers=H, json={"target": "upload:" + "0" * 32})
+    assert r.status_code == 422 and "not on the PC" in r.json()["error"]
+
+
+def test_upload_refuses_files_over_the_limit(running_app):
+    app, c = running_app
+    app.settings.assistant.upload_max_mb = 1
+    r = c.post("/api/assistant/upload?name=big.bin", headers=H, content=b"\x00" * (2 * 1024 * 1024))
+    assert r.status_code == 413
+    from clipbot.agent.watch import uploads_dir
+    assert not any(uploads_dir(app.paths.data).glob("*.bin"))     # partial file removed

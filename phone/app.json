@@ -36,7 +36,11 @@
         "foregroundImage": "./assets/icon-adaptive.png",
         "backgroundColor": "#070708"
       },
-      "icon": "./assets/icon-ios.png"
+      "icon": "./assets/icon-ios.png",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
     },
     "plugins": [
       [
@@ -50,7 +54,22 @@
             "deploymentTarget": "15.1"
           }
         }
-      ]
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock with Face ID so nobody else can open your desk or your chats."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach photos and videos to a message for the assistant.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-document-picker"
     ],
     "notification": {
       "icon": "./assets/icon-notification.png",
