@@ -810,7 +810,7 @@ nav button:hover .i3{transform:scale(1.08)}
   </div>
 </aside>
 <div class="content">
-  <div class="topbar"><div class="grow"><h1 id="pageTitle">Live desk</h1><p id="pageSub">Watch the streams. Catch the moments worth keeping.</p></div><div class="top-tools"><span class="local-label">LOCAL WORKSPACE</span><button class="btn ghost" type="button" id="phoneBtn" hidden>Phone remote</button><button class="btn ghost" type="button" id="petSettings">Desktop pet</button><button class="btn" type="button" onclick="show('clips')">Open clips</button></div></div>
+  <div class="topbar"><div class="grow"><h1 id="pageTitle">Live desk</h1><p id="pageSub">Watch the streams. Catch the moments worth keeping.</p></div><div class="top-tools"><button class="btn ghost" type="button" id="phoneBtn" hidden>Phone remote</button></div></div>
   <div class="banner" id="restartBanner"><span>Some changes need a restart: <b id="restartList"></b></span>
     <button class="btn primary" id="restartBtn" type="button">Restart BURN-IN</button></div>
   <div class="banner" id="updBanner"><span id="updText"></span><button class="btn primary" id="updBtn" type="button">Update now</button></div>
@@ -1832,7 +1832,7 @@ setInterval(() => { if ($("#view-clips").classList.contains("active")) loadClips
 
 /* ---------------- live viewer: what BURN-IN sees, near-live from its own capture buffer ---------------- */
 const W = {key: null, timer: null, queue: [], seen: new Set(), chat: [], official: false, info: null, playing: null,
-           ms: null, sb: null, pending: [], fetching: false, mse: false, started: false};
+           ms: null, sb: null, pending: [], fetching: false, mse: false, started: false, lastName: null};
 // One continuous stream instead of two <video> elements taking turns. Each buffer segment is
 // already fragmented MP4, so they can be appended into a single SourceBuffer: the browser then
 // keeps one clock for picture and sound, which is what stops the audio sliding out of step, and
@@ -1842,6 +1842,8 @@ const WMSE_TYPES = ['video/mp4; codecs="avc1.640029,mp4a.40.2"', 'video/mp4; cod
 const wMseType = () => (window.MediaSource ? WMSE_TYPES.find(t => MediaSource.isTypeSupported(t)) : null);
 const wMaxLag = () => (state && state.viewer_max_lag_s) || 12;
 const wKeep = () => (state && state.viewer_keep_s) || 30;
+const WSEAM_MAX_S = 0.5;   // a gap bigger than this is missing video, not a seam
+const WSEAM_NUDGE_S = 0.001;
 const WEDGE_S = 0.4;        // land just inside the newest video, not exactly on its last frame
 const WQUEUE_MAX = 3;       // more than this waiting means we are behind: skip to the newest
 const wPlayers = () => [$("#wVideo"), $("#wVideo2")];
@@ -1897,6 +1899,8 @@ function wStartMse() {
       sb.mode = "sequence";
       sb.addEventListener("updateend", wPump);
       sb.addEventListener("error", wFallback);
+      v.addEventListener("waiting", wSeam);
+      v.addEventListener("stalled", wSeam);
       wPump();
     } catch (e) { report_watch(e); wFallback(); }
   }, {once: true});
@@ -1910,7 +1914,7 @@ function wPump() {
     try { sb.appendBuffer(W.pending.shift()); } catch (e) { report_watch(e); wFallback(); }
     return;                                  // updateend calls us back
   }
-  wTrim(); wCatchUp();
+  wTrim(); wCatchUp(); wSeam();
   if (!W.fetching && W.queue.length) wFetch();
 }
 async function wFetch() {
@@ -1922,7 +1926,7 @@ async function wFetch() {
     if (!r.ok) throw new Error(`segment ${name}: ${r.status}`);
     const buf = await r.arrayBuffer();
     if (key !== W.key) return;               // the viewer moved on while we were fetching
-    W.pending.push(buf); W.playing = name;
+    W.pending.push(buf); W.playing = name; W.lastName = name;
   } catch (e) { report_watch(e); }
   finally { W.fetching = false; }
   wPump();
@@ -1935,19 +1939,38 @@ function wTrim() {                           // drop what has been watched, so m
   const cut = v.currentTime - wKeep();
   if (cut > 1 && sb.buffered.start(0) < cut) { try { sb.remove(0, cut); } catch (e) { report_watch(e); } }
 }
+function wSeam() {
+  // Each segment's audio and video end a few milliseconds apart, so appending them leaves a
+  // hairline gap between buffered ranges. The playhead stops dead in one of those. When we are
+  // sitting just before the next range, step over the seam instead of waiting for video that is
+  // never coming. Every streaming player does this; the gaps are a property of the source.
+  const sb = W.sb, v = $("#wVideo");
+  if (!sb || !sb.buffered.length) return;
+  for (let i = 0; i < sb.buffered.length; i++) {
+    const start = sb.buffered.start(i), ahead = start - v.currentTime;
+    if (ahead > 0 && ahead <= WSEAM_MAX_S) { v.currentTime = start + WSEAM_NUDGE_S; return; }
+  }
+}
 function wCatchUp() {                        // a stall must not leave us playing old video forever
   const sb = W.sb, v = $("#wVideo");
   if (!sb || !sb.buffered.length) return;
   const live = sb.buffered.end(sb.buffered.length - 1);
   if (live - v.currentTime > wMaxLag()) v.currentTime = Math.max(0, live - WEDGE_S);
 }
-function wFallback() {                       // MediaSource refused this stream: use the swap player
+function wFallback() {
+  // MediaSource would not take this stream. The plain <video> path is more forgiving, so drop
+  // back to it rather than showing nothing: whatever we were about to append goes back on the
+  // queue, because losing it here is how a failure turns into a blank player.
   if (!W.mse) return;
   W.mse = false; W.sb = null; W.ms = null; W.pending = [];
+  logger_warn("viewer: MediaSource refused the stream, falling back to segment playback");
   const v = $("#wVideo");
   try { v.removeAttribute("src"); v.load(); } catch (e) { report_watch(e); }
-  if (W.queue.length) wNext();
+  if (W.lastName && !W.queue.includes(W.lastName)) W.queue.unshift(W.lastName);
+  W.playing = null;
+  if (W.queue.length) wNext(); else wPreload();
 }
+function logger_warn(msg) { console.warn(msg); }
 function wPreload() {                        // the idle player loads the next segment in advance
   const [a, b] = wPlayers(), idle = a.classList.contains("on") ? b : a;
   if (W.queue.length && idle.dataset.seg !== W.queue[0]) { idle.dataset.seg = W.queue[0]; idle.src = wUrl(W.queue[0]); idle.load(); }
@@ -2278,7 +2301,6 @@ function mockTick() {
 }
 window.addEventListener("resize", () => { if ($("#view-studio").classList.contains("active")) mock(); });
 
-$("#petSettings").addEventListener("click", () => focusField("pets.enabled"));
 $("#monitorSearch").addEventListener("input", () => { if (state) renderMonitors(state); });
 $("#monitorMore").addEventListener("click", () => { allMonitors = !allMonitors; if (state) renderMonitors(state); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

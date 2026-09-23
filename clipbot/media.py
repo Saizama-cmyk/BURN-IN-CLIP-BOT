@@ -57,8 +57,15 @@ async def grab_jpeg(src: Path, out: Path, at_s: float, width: int, settings: Set
 
 
 async def remux_segment(src: Path, cache_dir: Path, settings: Settings) -> Path | None:
-    """Buffer segment (.ts) -> fragmented MP4 the browser can append (stream copy, cached).
-    Old cached files are dropped as the buffer rolls past them."""
+    """Buffer segment (.ts) -> fragmented MP4 the browser can append (cached).
+
+    The video is copied untouched; the audio is re-encoded, and that is deliberate. These
+    segments are cut out of a running stream, so each one starts mid-audio-frame and
+    ``aac_adtstoasc`` never sees a whole ADTS header to build the config from. It writes a track
+    with no valid profile, which a plain <video> tag tolerates but Media Source rejects outright:
+    the whole append fails with "stream parsing failed" and nothing plays. Re-encoding costs about
+    0.16s per six-second segment, once, and the result is cached.
+    """
     out = cache_dir / f"{src.stem}.mp4"
     if out.exists():
         return out
@@ -69,7 +76,8 @@ async def remux_segment(src: Path, cache_dir: Path, settings: Settings) -> Path 
     tmp = out.with_suffix(".tmp.mp4")
     try:
         res = await run_cmd([ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", str(src),
-                             "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-bsf:a", "aac_adtstoasc",
+                             "-map", "0:v:0?", "-map", "0:a:0?", "-c:v", "copy",
+                             "-c:a", "aac", "-b:a", f"{settings.viewer.live_audio_kbps}k",
                              "-movflags", "frag_keyframe+empty_moov+default_base_moof",
                              "-f", "mp4", str(tmp)], settings.capture.probe_timeout_s)
     except CmdTimeout as exc:

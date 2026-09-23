@@ -164,12 +164,13 @@ class AppCfg(Section):
                                  "runs low, in order. One per line, e.g. D:\\BURN-IN clips. New "
                                  "clips go to the first one with room; clips already written stay "
                                  "where they are and keep playing.", widget="lines")
-    sweep_min: float = F(10.0, "Tidy up every (min)", "How often BURN-IN clears out work files "
+    sweep_min: float = F(5.0, "Tidy up every (min)", "How often BURN-IN clears out work files "
                          "and buffers for streams it no longer watches. 0 = only when space runs "
                          "low.", ge=0, le=720)
-    work_keep_h: float = F(6.0, "Keep work files for (h)", "Half-finished cuts and frames are "
-                           "deleted after this long. They are only useful while a clip is being "
-                           "made.", ge=0.5, le=168)
+    work_keep_h: float = F(0.5, "Keep work files for (h)", "Half-finished cuts and frames are "
+                           "deleted after this long (0.5 = 30 minutes). They are only useful while "
+                           "a clip is being made, and a clip is finished or given up on well "
+                           "inside that.", ge=0.1, le=168)
     overflow_free_gb: float = F(25.0, "Move on when free space is under (GB)",
                                 "Free space on the current drive that makes BURN-IN start writing "
                                 "to the next one.", ge=1, le=2000)
@@ -389,8 +390,10 @@ class ClipCfg(Section):
                                "buffered video it came from is long gone, so it can never finish, "
                                "and leaving it in the queue is what keeps the failsafe on.",
                                ge=0.1, le=72)
-    keep_rejected_hours: float = F(24.0, "Keep rejected cuts (h)",
-                                   "Rejected/failed cuts stay watchable this long, then are deleted (0 = delete at once).",
+    keep_rejected_hours: float = F(0.25, "Keep rejected cuts (h)",
+                                   "Cuts the AI turned down stay watchable this long, then are "
+                                   "deleted (0.25 = 15 minutes, 0 = at once). Each one is a full-size "
+                                   "video, so keeping them for hours is what fills the drive.",
                                    ge=0, le=720)
     poster_width: int = F(360, "Poster width (px)", "Width of clip thumbnails in the gallery.",
                           ge=120, le=1080)
@@ -820,8 +823,9 @@ class EditCfg(Section):
     intro_path: str = F("", "Intro clip", "Video prepended to every clip. Empty = none.", widget="path")
     outro_path: str = F("", "Outro clip", "Video appended to every clip. Empty = none.", widget="path")
     render_timeout_s: float = F(600.0, "Render timeout (s)", "Kill a render that takes longer.", ge=30, le=7200)
-    keep_raw: bool = F(True, "Keep source cuts", "Keep each clip's source cut after rendering so "
-                       "Studio can restyle and re-trim it. Removed with the clip when it expires.")
+    keep_raw: bool = F(False, "Keep source cuts", "Also keep each clip's source cut after "
+                       "rendering, so Studio can restyle and re-trim it from the original. Off "
+                       "keeps only the finished clip, which halves the space every clip takes.")
     scale_flags: Literal["lanczos", "bicubic", "bilinear"] = F(
         "lanczos", "Scaling filter", "How frames are resized (lanczos = sharpest).")
     sharpen: float = F(0.35, "Sharpen", "Mild unsharp mask after scaling (0 = off).", ge=0, le=2)
@@ -944,7 +948,7 @@ class PostingCfg(Section):
                             ge=1, le=365)
     delete_remote_on_expiry: bool = F(False, "Delete remote posts on expiry",
                                       "Also delete the uploaded post where the platform allows it.")
-    cleanup_interval_s: float = F(3600.0, "Cleanup interval (s)", "How often expired items are removed.",
+    cleanup_interval_s: float = F(300.0, "Cleanup interval (s)", "How often expired items are removed.",
                                   ge=60, le=86400)
     max_attempts: int = F(2, "Attempts per platform", "Upload attempts per clip and platform before giving up.",
                           ge=1, le=10)
@@ -1062,6 +1066,11 @@ class ViewerCfg(Section):
                               "video forever. Once it is this far behind what has been captured, "
                               "it skips forward to the newest video instead of crawling.",
                               ge=2, le=120)
+    live_audio_kbps: int = F(128, "Viewer audio quality (kbps)", "The viewer's sound is "
+                             "re-encoded at this rate. A stream segment starts mid-audio-frame, "
+                             "so its original sound cannot be copied into a form the browser will "
+                             "play; this only affects what you hear in the viewer, never a clip.",
+                             ge=32, le=320)
     live_keep_s: float = F(30.0, "Keep played video (s)", "How much already-played video the "
                            "viewer keeps, so you can scrub back a little. The rest is dropped to "
                            "keep the browser's memory flat during a long watch.", ge=5, le=600)
@@ -1351,6 +1360,35 @@ def upgrade_prompts(data: dict) -> bool:
     return changed
 
 
+STORAGE_UPGRADES = {         # setting -> the old default it replaces
+    "app.sweep_min": 10.0,
+    "app.work_keep_h": 6.0,
+    "clip.keep_rejected_hours": 24.0,
+    "posting.cleanup_interval_s": 3600.0,
+    "edit.keep_raw": True,
+}
+
+
+def upgrade_storage(data: dict) -> bool:
+    """Move untouched storage settings to the new defaults. True if anything changed.
+
+    The old defaults kept every rejected cut for a day and every source cut forever, which
+    filled the drive in hours and stalled the queue behind it. Only values still equal to the
+    old default are moved: a number someone typed in on purpose is theirs."""
+    fresh = Settings()
+    changed = False
+    for field, old_default in STORAGE_UPGRADES.items():
+        path = tuple(field.split("."))
+        try:
+            stored = get_path(data, path)
+        except (KeyError, TypeError):
+            continue
+        if stored == old_default:
+            set_path(data, path, get_path(fresh.model_dump(), path))
+            changed = True
+    return changed
+
+
 def load_settings(path: Path | None = None) -> Settings:
     """Load settings, creating the file with defaults on first run.
 
@@ -1369,8 +1407,8 @@ def load_settings(path: Path | None = None) -> Settings:
                 continue
             if isinstance(value, str) and value.startswith(secure.PREFIX):
                 set_path(data, secret, secure.unprotect(value))
-        if upgrade_prompts(data):
-            logger.info("settings: prompt upgraded to the current default")
+        if upgrade_prompts(data) | upgrade_storage(data):      # | not or: both must run
+            logger.info("settings: untouched defaults moved to the current ones")
         return Settings.model_validate(data)
     except secure.SecureError as exc:
         raise ConfigError(f"settings file {path} has keys encrypted for another Windows account: "

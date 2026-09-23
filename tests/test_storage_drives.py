@@ -74,3 +74,18 @@ def test_free_gb_reports_zero_for_a_drive_that_is_not_there(tmp_path):
     missing = tmp_path / "nope.txt"
     missing.write_text("a file, so mkdir underneath it cannot work", encoding="utf-8")
     assert storage.free_gb(missing / "clips") == 0.0
+
+
+def test_old_storage_defaults_are_upgraded_but_chosen_values_kept():
+    """The old defaults filled the drive in hours. Untouched ones move; chosen ones stay."""
+    from clipbot.config import upgrade_storage
+    data = {"clip": {"keep_rejected_hours": 24.0},          # untouched old default
+            "app": {"work_keep_h": 12.0, "sweep_min": 10.0},  # 12 was chosen on purpose
+            "edit": {"keep_raw": True}}
+    assert upgrade_storage(data) is True
+    fresh = Settings()
+    assert data["clip"]["keep_rejected_hours"] == fresh.clip.keep_rejected_hours
+    assert data["app"]["sweep_min"] == fresh.app.sweep_min
+    assert data["edit"]["keep_raw"] is False
+    assert data["app"]["work_keep_h"] == 12.0
+    assert upgrade_storage(data) is False                  # nothing left to move
