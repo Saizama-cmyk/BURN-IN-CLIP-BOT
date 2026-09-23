@@ -59,6 +59,15 @@ def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
             "tintColor": TINT,
             "category": "utilities",
             "screenshotURLs": [SCREENSHOT.format(repo=repo)],
+            # The same release stated twice. Newer sideloaders read "versions"; older AltStore
+            # builds read these flat fields and refuse the install with "version does not match"
+            # when they are missing. Writing both means any tool can install it.
+            "version": version,
+            "versionDate": date.today().isoformat(),
+            "versionDescription": f"{PRODUCT} {version}.",
+            "downloadURL": ipa_url,
+            "size": size,
+            "minOSVersion": MIN_IOS,
             "versions": [{
                 "version": version,
                 "date": date.today().isoformat(),

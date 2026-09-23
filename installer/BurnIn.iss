@@ -75,8 +75,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 Filename: "winget"; Parameters: "install -e --id Gyan.FFmpeg --accept-source-agreements --accept-package-agreements --silent"; StatusMsg: "Installing ffmpeg…"; Flags: runhidden waituntilterminated; Tasks: ffmpeg
 Filename: "winget"; Parameters: "install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements --silent"; StatusMsg: "Installing Ollama…"; Flags: runhidden waituntilterminated; Tasks: ollama
 ; the firewall rule needs administrator rights, so this one asks for them on its own
-Filename: "{sys}
-etsh.exe"; Parameters: "advfirewall firewall add rule name=""BURN-IN phone remote"" dir=in action=allow protocol=TCP localport=8787 profile=private,domain"; StatusMsg: "Allowing the phone remote through the firewall…"; Flags: shellexec runhidden waituntilterminated; Verb: runas; Tasks: firewall
+Filename: "{app}\allow-phone-remote.cmd"; Parameters: "/quiet"; StatusMsg: "Allowing the phone remote through the firewall..."; Flags: shellexec runhidden waituntilterminated; Tasks: firewall
 Filename: "{app}\BurnIn.exe"; Description: "Start BURN-IN"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\BurnIn.exe"; Flags: nowait; Check: WizardSilent
 

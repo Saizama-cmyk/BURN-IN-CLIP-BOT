@@ -4,14 +4,18 @@ rem
 rem Windows Firewall silently drops incoming connections to the dashboard, so the phone can see
 rem nothing even when everything else is right. This adds one rule for port 8787 on private
 rem (home) networks only - never on public Wi-Fi. Double-click it and say yes to the prompt.
+rem
+rem The installer runs it with /quiet, which skips the closing prompt: there would be no window
+rem to press a key in, so it would wait for a keypress that never comes.
 setlocal
 set PORT=8787
 set RULE=BURN-IN phone remote
+set QUIET=%1
 
 net session >nul 2>&1
 if errorlevel 1 (
   echo Asking for administrator rights...
-  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%QUIET%' -Verb RunAs"
   exit /b
 )
 
@@ -28,4 +32,4 @@ if errorlevel 1 (
   echo In BURN-IN: Settings - Dashboard - Phone remote, then use the address it shows.
 )
 echo.
-pause
+if /i not "%QUIET%"=="/quiet" pause
