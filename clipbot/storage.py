@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -99,26 +100,60 @@ def apply_pending(settings: Settings) -> list[str]:
 
 
 def free_gb(path: Path) -> float:
-    """Free space on the drive holding ``path`` (0 when it cannot be read)."""
+    """Free space on the drive holding ``path``.
+
+    Returns 0 when the folder cannot be reached at all - an unplugged USB stick, a network
+    share that is down, a drive letter that no longer exists. A drive with no room and a drive
+    that is not there both mean the same thing to the caller: do not write here."""
     try:
         path.mkdir(parents=True, exist_ok=True)
         return shutil.disk_usage(path).free / GB
     except OSError as exc:
-        logger.warning("cannot read free space of %s: %s", path, exc)
+        logger.debug("cannot use %s: %s", path, exc)
         return 0.0
 
 
+def clip_drives(settings: Settings, paths: AppPaths) -> list[Path]:
+    """Every folder clips may be written to, in the order they should be tried: the main one
+    first, then each drive added on the Storage page."""
+    out = [paths.clips]
+    for entry in settings.app.overflow_dirs:
+        entry = entry.strip()
+        if not entry:
+            continue
+        folder = Path(os.path.expandvars(entry))
+        if folder not in out:
+            out.append(folder)
+    return out
+
+
 def clips_target(settings: Settings, paths: AppPaths) -> Path:
-    """Where the next clip should be written: the main folder until it runs low, then the first
-    overflow drive with room. Falls back to the main folder when every drive is full, so a clip
-    is never lost to a missing directory."""
+    """Pick the drive to write the next clip to.
+
+    The drives you list are a pool, not a chain: the first one with room wins, and any that is
+    missing or full is skipped. That is what makes pulling a USB stick harmless - it simply
+    stops being chosen, and the next clip lands on a drive that is actually there.
+
+    When none has the free space you asked for, the roomiest reachable drive is used rather than
+    insisting on the main one: a little tight beats writing to a folder that is not mounted. Only
+    if nothing at all can be reached does it fall back to the main folder, so the caller always
+    gets a path and the failure surfaces as one clear error instead of a missing attribute."""
     want = settings.app.overflow_free_gb
-    folders = [paths.clips] + [Path(os.path.expandvars(d.strip()))
-                               for d in settings.app.overflow_dirs if d.strip()]
-    for folder in folders:
-        if free_gb(folder) >= want:
+    space = [(folder, free_gb(folder)) for folder in clip_drives(settings, paths)]
+
+    for folder, free in space:
+        if free >= want:
             if folder != paths.clips:
-                logger.info("clips overflowing to %s (main drive under %.0f GB free)", folder, want)
+                logger.info("clips going to %s (%.0f GB free; earlier drives are full or gone)",
+                            folder, free)
             return folder
-    logger.warning("every clip folder is under %.0f GB free; still writing to %s", want, paths.clips)
+
+    reachable = [(folder, free) for folder, free in space if free > 0]
+    if reachable:
+        folder, free = max(reachable, key=lambda pair: pair[1])
+        logger.warning("every clip drive is under %.0f GB free; using the roomiest, %s (%.1f GB)",
+                       want, folder, free)
+        return folder
+
+    logger.error("no clip drive can be reached; still writing to %s", paths.clips)
     return paths.clips

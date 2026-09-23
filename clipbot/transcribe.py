@@ -143,6 +143,13 @@ class Transcriber:
         self._ensure()
         try:
             result = self._run(path)
+        except IndexError as exc:
+            # A cut with no decodable audio - a silent stream, or a file truncated because the
+            # drive went away mid-write. The voice detector indexes an empty array and raises.
+            # There is nothing to transcribe, which is an answer, not a failure: an empty
+            # transcript lets the judge reject the clip instead of the whole task crashing.
+            logger.info("no audio in %s (%s); treating it as silence", path, exc)
+            return Transcript("", [], "", self._device)
         except (RuntimeError, OSError) as exc:
             with self._lock:
                 can_fallback = self._device == "cuda" and not self._verified and not self._fell_back

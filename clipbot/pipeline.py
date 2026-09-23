@@ -573,6 +573,16 @@ class Pipeline:
         except (AssembleError, RenderError, CmdTimeout, OSError, RuntimeError, ValueError) as exc:
             logger.warning("candidate %s failed: %s", c.id, exc)
             await self._finish(c, Stage.FAILED, str(exc) or type(exc).__name__)
+        except Exception as exc:                      # noqa: BLE001 - see below
+            # Anything not listed above is a bug, not a bad clip. It still must not escape: an
+            # exception leaving this task means the candidate keeps its stage in the database,
+            # is counted as in flight, and is resumed on the next start - forever. A handful of
+            # those is enough to hold the backlog failsafe on and stop capture altogether, which
+            # is exactly how this app went hours behind live. So the bug is logged in full and
+            # the clip is written off, and the queue keeps moving.
+            logger.error("candidate %s hit a bug in the %s stage and was dropped",
+                         c.id, c.stage, exc_info=True)
+            await self._finish(c, Stage.FAILED, f"{type(exc).__name__}: {exc}")
 
     async def _think(self, c: Candidate, duration: float) -> None:
         """Watch, judge and write one clip.
