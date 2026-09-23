@@ -18,19 +18,19 @@
       "screenshotURLs": [
         "https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/clipbot/dashboard/static/art/mark.png"
       ],
-      "version": "1.0.13",
-      "versionDate": "2026-09-22",
-      "versionDescription": "BURN-IN 1.0.13.",
+      "version": "1.0.14",
+      "versionDate": "2026-09-23",
+      "versionDescription": "BURN-IN 1.0.14.",
       "downloadURL": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/download/phone-latest/BURN-IN-Remote.ipa",
-      "size": 10944868,
+      "size": 11578580,
       "minOSVersion": "15.1",
       "versions": [
         {
-          "version": "1.0.13",
-          "date": "2026-09-22",
-          "localizedDescription": "BURN-IN 1.0.13.",
+          "version": "1.0.14",
+          "date": "2026-09-23",
+          "localizedDescription": "BURN-IN 1.0.14.",
           "downloadURL": "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/download/phone-latest/BURN-IN-Remote.ipa",
-          "size": 10944868,
+          "size": 11578580,
           "minOSVersion": "15.1"
         }
       ]
