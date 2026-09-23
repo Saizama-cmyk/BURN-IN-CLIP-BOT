@@ -1698,12 +1698,23 @@ setInterval(async () => {
 }, 15000);
 (function splash() {
   const sp = $("#splash"), v = $("#splashVid");
-  let gone = false;
+  const STILL_MS = 1200, AFTER_MS = 350, CAP_MS = 6000;   // the cap never holds the app hostage
+  let gone = false, started = false;
   const hide = () => { if (!gone) { gone = true; sp.classList.add("gone"); } };
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { v.removeAttribute("autoplay"); v.pause(); hide(); return; }
-  v.addEventListener("ended", () => setTimeout(hide, 350));
-  v.addEventListener("error", () => setTimeout(hide, 900), true);
-  setTimeout(hide, 1800);                 // never hold the app hostage
+  v.removeAttribute("autoplay"); v.pause();
+  // Every launch plays it where you can see it: a window that opens in the tray waits until shown.
+  const start = () => {
+    if (started || document.visibilityState !== "visible") return;
+    started = true;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { setTimeout(hide, STILL_MS); return; }
+    v.addEventListener("ended", () => setTimeout(hide, AFTER_MS));
+    v.addEventListener("error", () => setTimeout(hide, STILL_MS), true);
+    v.currentTime = 0;
+    v.play().catch(() => setTimeout(hide, STILL_MS));
+    setTimeout(hide, CAP_MS);
+  };
+  document.addEventListener("visibilitychange", start);
+  start();
 })();
 (async () => { const r = await _api0("/api/auth/status"); authInfo = r.body; if (!authInfo.signed_in) showLock(); })();
 

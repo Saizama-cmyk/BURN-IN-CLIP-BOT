@@ -13,6 +13,16 @@ Dates are the day the release was tagged.
 **New name: Ashvane.** Same app, same settings, same clips. The old name was hard to search,
 clashed with a clothing trademark and said nothing good about the product.
 
+**Window and pet**
+
+- The desktop pet no longer covers the screen with a grey sheet. The WebView2 update from
+  mid-September made Windows 11 paint its dark backdrop behind the pet's see-through window; the
+  pet window now turns that backdrop off, so only the pet shows.
+- Opening Ashvane yourself always opens the window, centred on the screen. "Start in the tray"
+  now applies only when Windows starts Ashvane at sign-in.
+- The splash plays on every launch where you can see it: if the window starts in the tray, it
+  waits until you open it, and it is no longer cut off before it finishes.
+
 - New identity rendered in Blender: two metal vanes leaning into an A, cut through by an ember
   slash. It is the icon everywhere Windows shows one (taskbar, Start, title bar, tray, Alt+Tab,
   installer, Apps list), and the animated splash when the app opens.
@@ -156,6 +166,11 @@ First release.
 - Judge profiles that adapt to your GPU, and automatic updates.
 
 ## Phone
+
+### 1.0.20 — 2026-09-23
+
+- A launch splash every time the app opens: the Ashvane mark settles in and an ember line fills
+  before the app appears underneath.
 
 ### 1.0.19 — 2026-09-23
 

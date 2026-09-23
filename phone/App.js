@@ -16,6 +16,7 @@ import { LockScreen, useLock } from "./Lock";
 import { call, KEY_HOST, KEY_TOKEN } from "./api";
 import * as secure from "./secure";
 import { useModel } from "./useModel";
+import Splash from "./Splash";
 import Assistant from "./Assistant";
 import Code from "./code/Code";
 import { Clips, Live, Log, SettingsTab, SignIn, Studio } from "./Remote";
@@ -43,6 +44,15 @@ function useUpdate(current) {
 }
 
 export default function App() {
+  const [splash, setSplash] = useState(true);       // plays on every launch, over whatever loads
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <Main />
+      {splash && <Splash onDone={() => setSplash(false)} />}
+    </View>);
+}
+
+function Main() {
   const [host, setHost] = useState(null);
   const [token, setToken] = useState(null);
   const [ready, setReady] = useState(false);

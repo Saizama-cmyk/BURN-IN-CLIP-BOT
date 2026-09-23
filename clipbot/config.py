@@ -197,8 +197,9 @@ class AppCfg(Section):
     """How Ashvane runs as a Windows app and where it keeps its files."""
     start_with_windows: bool = F(False, "Start with Windows",
                                  "Launch Ashvane when you sign in (adds/removes the HKCU Run key).")
-    start_minimized: bool = F(False, "Start minimized to tray",
-                              "Open straight into the tray icon without showing the window.")
+    start_minimized: bool = F(False, "Start in the tray at sign-in",
+                              "When Windows starts Ashvane at sign-in, keep it in the tray. Opening "
+                              "Ashvane yourself always shows the window.")
     autostart_silent: bool = F(True, "Run silently at sign-in",
                                "When Windows starts Ashvane at sign-in, it runs in the background "
                                "(tray only) without opening the window.")

@@ -104,6 +104,11 @@ WS_EX_TRANSPARENT = 0x00000020            # the overlay never takes a click; Pet
 LWA_COLORKEY = 0x1                         # keyed pixels vanish *and* stop taking mouse input
 LWA_ALPHA = 0x2
 LAYER_OPAQUE = 255
+# Windows 11 paints its system backdrop (#202020 in dark mode) under keyed pixels of a window that
+# hosts WebView2 (runtime 153+), turning the see-through overlay into a grey sheet. Switch it off.
+DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+DWMWA_SYSTEMBACKDROP_TYPE = 38
+DWMSBT_NONE = 1
 VK_LBUTTON = 0x01
 KEY_DOWN = 0x8000
 MS = 1000.0
@@ -321,6 +326,16 @@ class PetBridge:
         self._desktop.set_pet_visible(False)
 
 
+def no_backdrop(hwnd: int) -> None:
+    """No Windows 11 backdrop and no dark frame fill: keyed pixels show the desktop again."""
+    dwm = ctypes.windll.dwmapi
+    for attr, value in ((DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_NONE), (DWMWA_USE_IMMERSIVE_DARK_MODE, 0)):
+        v = ctypes.c_int(value)
+        hr = dwm.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(v), ctypes.sizeof(v))
+        if hr:  # older Windows builds don't know the backdrop attribute; nothing to undo there
+            logger.debug("pet DwmSetWindowAttribute(%d) -> %#x", attr, ctypes.c_uint32(hr).value)
+
+
 # --------------------------------------------------------------------------- identity
 APP_USER_MODEL_ID = "Ashvane.App"         # taskbar grouping + icon, even when run from python
 WM_SETICON = 0x0080
@@ -442,6 +457,7 @@ class Desktop:
             u32.SetWindowLongW(hwnd, GWL_EXSTYLE,
                                (ex | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TRANSPARENT)
                                & ~WS_EX_APPWINDOW)
+            no_backdrop(hwnd)
         self._pet_backcolor()
         self.pet_keyed(True)
         if self._pet_input is None:
@@ -618,9 +634,13 @@ class Desktop:
             return 1
         self._build_tray()
         d, a = self.app.settings.dashboard, self.app.settings.app
-        hidden = self.start_hidden or a.start_minimized or not a.open_window_on_launch
+        # a launch you start yourself always opens the window; only a sign-in start may stay in the tray
+        hidden = self.start_hidden or not a.open_window_on_launch
+        area = work_area()                      # centred on the screen, never hanging off an edge
+        width, height = min(d.window_width, area["w"]), min(d.window_height, area["h"])
         self.window = webview.create_window(
-            FULL_NAME, self.app.url, width=d.window_width, height=d.window_height,
+            FULL_NAME, self.app.url, width=width, height=height,
+            x=area["x"] + (area["w"] - width) // 2, y=area["y"] + (area["h"] - height) // 2,
             min_size=(d.window_min_width, d.window_min_height), hidden=hidden, background_color="#0F1B2D", text_select=True)
         self.window.events.closing += self._on_closing
         self.window.events.shown += lambda: set_window_icon(self.window)
