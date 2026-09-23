@@ -1,7 +1,7 @@
-"""Render and package the original BURN-IN Blender identity.
+"""Render and package the original Ashvane Blender identity.
 
 python art/build_art.py --render [--fast]
-Without --render, package the last frames in art/out_burnin/.
+Without --render, package the last frames in art/out_ashvane/.
 Blender is required only to rebuild the art; ffmpeg encodes the 2-second splash.
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT/'art'/'out_burnin'
+OUT = ROOT/'art'/'out_ashvane'
 STATIC = ROOT/'clipbot'/'dashboard'/'static'/'art'
 ASSETS = ROOT/'assets'
 BRAND = ROOT/'brandkit'
@@ -68,7 +68,7 @@ def brandkit(mark, backdrop):
         text_x=x+icon_size+int(width*.032)
         title_size=min(110,int(safe_height*.32))
         title_y=height//2-int(title_size*.82)
-        draw.text((text_x,title_y),'BURN-IN',font=font(title_size),fill=INK)
+        draw.text((text_x,title_y),'Ashvane',font=font(title_size),fill=INK)
         copy_y=title_y+int(title_size*1.34)
         draw.text((text_x,copy_y),'YOUR STREAM. THE MOMENT. THE CUT.',font=font(max(18,int(title_size*.23)),True),fill=EMBER)
         draw.text((text_x,copy_y+int(title_size*.42)),'Local AI clipping for Windows',font=font(max(19,int(title_size*.25))),fill=MUTED)
@@ -86,7 +86,7 @@ def brandkit(mark, backdrop):
 def main():
     logging.basicConfig(level=logging.INFO,format='%(message)s')
     if '--render' in sys.argv:
-        subprocess.run([str(blender_exe()),'-b','--factory-startup','-P',str(ROOT/'art'/'burnin_scene.py'),
+        subprocess.run([str(blender_exe()),'-b','--factory-startup','-P',str(ROOT/'art'/'ashvane_scene.py'),
                         '--','all',str(OUT)]+(['--fast'] if '--fast' in sys.argv else []),check=True)
     STATIC.mkdir(parents=True,exist_ok=True)
     ASSETS.mkdir(exist_ok=True)

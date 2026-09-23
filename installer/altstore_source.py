@@ -17,33 +17,36 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRODUCT = "BURN-IN"          # kept in step with clipbot/config.py by the brand test
+PRODUCT = "Ashvane"          # kept in step with clipbot/config.py by the brand test
 
 OUT = ROOT / "docs" / "sideload.json"
 ALIAS = ROOT / "docs" / "altstore.json"   # same feed, the name older tools expect
-BUNDLE_ID = "os.spike.burnin.remote"
+BUNDLE_ID = "app.ashvane.mobile"
 # full-size and opaque: sideloaders show this large, and iOS turns transparency black
 ICON = "https://raw.githubusercontent.com/{repo}/main/phone/assets/icon-ios.png"
 SCREENSHOT = "https://raw.githubusercontent.com/{repo}/main/docs/listing/screen-{n}.png"
 SCREENSHOTS = 4                            # docs/listing/screen-1..4.png, from make_assets.py
-TINT = "DDE1E7"
+TINT = "F06834"                            # the ember of the mark
 DESCRIPTION = (
     f"{PRODUCT} watches the biggest Twitch and Kick streams on your PC, catches the moments chat "
     "loses it over, and turns them into vertical clips ready to post. This app puts the whole "
-    "desk in your pocket.\n\n"
+    "desk in your pocket, next to a private AI that lives on the phone.\n\n"
     "REMOTE\n"
     "- See every stream it is watching, with viewers and how hot chat is running\n"
     "- Look through the clips it made and post the good ones straight away\n"
     "- Change the look of your clips in Studio, and every setting, from the couch\n"
     "- Pause and resume capture, and read what it is doing and why\n\n"
     "ASSISTANT\n"
-    "- A private AI that runs on the phone itself: it checks your phone and downloads the "
-    "largest model that will run well on it\n"
-    "- Works with no PC and no internet once the model is on the phone\n"
-    "- Connected to your PC, it can use the bigger model there instead\n\n"
+    "- Runs on the phone itself: it checks your phone and downloads the largest model that "
+    "will run well on it, then works with no PC and no internet\n"
+    "- Attach photos, videos and files; send a video link and it watches it with your PC's help\n"
+    "- Skills you call with /name - research, learn, grill-me, watch-this, plan and more - "
+    "plus your own, and rules that apply to every chat\n"
+    "- A Code mode for writing and explaining code\n\n"
     "PRIVATE BY DESIGN\n"
-    "No account and no cloud. The app talks only to your own PC, on your Wi-Fi or over "
-    "Tailscale, and asks for your BURN-IN password."
+    "Locked with Face ID, Touch ID or your passcode. No account and no cloud: the app talks "
+    "only to your own PC, on your Wi-Fi or over Tailscale, and asks for your "
+    f"{PRODUCT} password."
 )
 MIN_IOS = "15.1"
 
@@ -60,7 +63,7 @@ def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
         version = app_version()
     return {
         "name": PRODUCT,
-        "identifier": "os.spike.burnin",
+        "identifier": "app.ashvane",
         "subtitle": "Your clip desk and a private AI, in your pocket.",
         "iconURL": ICON.format(repo=repo),
         "website": f"https://github.com/{repo}",

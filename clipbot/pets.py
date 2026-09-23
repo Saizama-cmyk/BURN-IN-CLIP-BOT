@@ -36,7 +36,7 @@ def _stream(m: dict) -> dict:
 
 def pet_state(snap: dict, settings: Settings, now: float | None = None,
               *, history: dict[str, list[int]] | None = None) -> dict:
-    """The small, stable view of BURN-IN the pet needs (pure; unit-tested)."""
+    """The small, stable view of Ashvane the pet needs (pure; unit-tested)."""
     now = time.time() if now is None else now
     counts = (snap.get("stages") or {}).get("counts") or {}
     samples = snap.get("samples") or []

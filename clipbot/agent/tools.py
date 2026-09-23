@@ -126,7 +126,7 @@ def build(ctx) -> dict[str, Tool]:
 
 
     tools = [
-        Tool("status", "How BURN-IN is doing right now: running or paused, queue, trouble, GPU.",
+        Tool("status", "How Ashvane is doing right now: running or paused, queue, trouble, GPU.",
              no_args(), status),
         Tool("streams", "The streams being watched, with viewers and how fast chat is moving.",
              no_args(), streams),

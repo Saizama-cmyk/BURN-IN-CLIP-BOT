@@ -4,7 +4,7 @@ The phone's own model does the thinking. What it cannot do is see or hear, so wh
 video or a picture it asks the PC to turn that into text - what is said, what is on screen, what
 a picture shows - and reasons over the text itself.
 
-Videos are fetched the way BURN-IN fetches streams: streamlink resolves Twitch, Kick, YouTube and
+Videos are fetched the way Ashvane fetches streams: streamlink resolves Twitch, Kick, YouTube and
 the rest to a playable address, and a plain video link goes straight to ffmpeg. Only the first
 ``assistant.watch_max_s`` seconds are taken. The vision model and Whisper share their GPU lock
 with the clip pipeline, so a request from the phone waits its turn rather than colliding with it.

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>BURN-IN pet</title>
+<html lang="en"><head><meta charset="utf-8"><title>Ashvane pet</title>
 <style>
 :root{--acc:#C9CED6;--ink:#0B0B0D;--txt:#EDEFF2;--mut:#8B909A}
 html,body{margin:0;background:transparent;overflow:hidden;user-select:none;font:12px/1.35 'Segoe UI',system-ui,sans-serif;color:var(--txt)}
@@ -205,7 +205,7 @@ function nextMood() {
   moodTimer = setTimeout(() => { m.classList.remove("show"); setTimeout(nextMood, 300); }, cfg.moodlet_seconds * 1000);
 }
 
-/* ---------- events from BURN-IN ---------- */
+/* ---------- events from Ashvane ---------- */
 function react(s) {
   if (!prev) return;
   const c = s.counts, p = prev.counts, top = s.streams[0];
@@ -297,7 +297,7 @@ function renderCard() {
     <div><div class="n">${esc(top.name)}</div><div class="s">${esc(top.category)} · ${Number(top.viewers).toLocaleString()} viewers</div><div class="s">chat ${top.rate}/s · z ${top.warm ? top.z : "warming"}</div></div></div>` : `<div class="s" style="color:var(--mut)">Nothing live on the board yet.</div>`);
   if (cfg.card_graphs) h += (top ? `<div class="sec">${esc(top.name)} chat vs baseline</div>${spark(top.spark)}` : "")
     + `<div class="sec">Clips per hour · last 12h</div>${bars(s.hours, s.passed_hours)}`;
-  h += `<div class="btns"><button id="bOpen">Open BURN-IN</button><button id="bPause">${s.manual_paused ? "Resume" : "Pause"}</button><button id="bSwap">Swap pet</button><button id="bHide">Hide</button></div>`;
+  h += `<div class="btns"><button id="bOpen">Open Ashvane</button><button id="bPause">${s.manual_paused ? "Resume" : "Pause"}</button><button id="bSwap">Swap pet</button><button id="bHide">Hide</button></div>`;
   $("#card").innerHTML = h;
   $("#bOpen").onclick = () => api() && api().open_app();
   $("#bPause").onclick = () => api() && api().toggle_pause();

@@ -1,3 +1,3 @@
-"""BURN-IN: local stream-clipping command center."""
+"""Ashvane: local stream-clipping command center."""
 
-__version__ = "1.0.4"
+__version__ = "1.1.0"

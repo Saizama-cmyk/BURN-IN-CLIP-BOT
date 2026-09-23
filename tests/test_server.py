@@ -43,7 +43,7 @@ def test_state_and_index(running_app):
     app, c = running_app
     st = c.get("/api/state").json()
     assert st["status"] in ("idle", "running") and "backlog" in st and "scheduler" in st
-    assert c.get("/").status_code == 200 and "BURN-IN" in c.get("/").text
+    assert c.get("/").status_code == 200 and "Ashvane" in c.get("/").text
 
 
 def test_settings_roundtrip_masking(running_app):
@@ -173,7 +173,7 @@ def test_update_install_checks_integrity_and_launches_once(running_app, monkeypa
     from clipbot.dashboard import server
 
     _, client = running_app
-    installer = tmp_path / "BURN-IN-Setup.exe"
+    installer = tmp_path / "Ashvane-Setup.exe"
     launched, options = [], []
 
     async def check(*args):
@@ -209,7 +209,7 @@ def test_private_host_allowed_only_on_our_port():
     assert _private_host("172.16.5.5", 8787)            # no port given
     assert not _private_host("8.8.8.8:8787", 8787)      # public address
     assert not _private_host("192.168.0.72:9999", 8787)  # someone else's port
-    assert not _private_host("burn-in.example.com:8787", 8787)
+    assert not _private_host("ashvane.example.com:8787", 8787)
 
 
 def test_phone_assistant_upload_look_and_watch(running_app):
@@ -246,3 +246,22 @@ def test_upload_refuses_files_over_the_limit(running_app):
     assert r.status_code == 413
     from clipbot.agent.watch import uploads_dir
     assert not any(uploads_dir(app.paths.data).glob("*.bin"))     # partial file removed
+
+
+def test_phone_app_sign_in_is_a_device_session(running_app):
+    """A native app (no Origin / Sec-Fetch headers, no cookie) gets the long phone session."""
+    from clipbot.dashboard.server import _is_app
+
+    class Req:
+        def __init__(self, headers, cookies=None):
+            self.headers, self.cookies = headers, cookies or {}
+
+    assert _is_app(Req({}), {})                                       # the phone app
+    assert _is_app(Req({"origin": "http://x"}), {"device": "phone"})  # says so explicitly
+    assert not _is_app(Req({"origin": "http://127.0.0.1:8787", "sec-fetch-site": "same-origin"}), {})
+
+
+def test_remote_test_explains_when_remote_is_off(running_app):
+    _, c = running_app
+    d = c.post("/api/remote/test", headers=H).json()
+    assert d["ok"] is False and d["routes"] == [] and "Phone remote is off" in d["advice"]

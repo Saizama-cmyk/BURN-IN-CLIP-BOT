@@ -8,8 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def write_checksums(dist: Path) -> Path:
-    assets = [dist / "BURN-IN-Setup.exe"]
-    web = dist / "BURN-IN-WebSetup.exe"
+    assets = [dist / "Ashvane-Setup.exe"]
+    web = dist / "Ashvane-WebSetup.exe"
     if web.is_file():
         assets.append(web)
     lines = []

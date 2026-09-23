@@ -19,8 +19,8 @@ def _paths(tmp_path):
 
 def test_overflow_dirs_are_expanded_and_listed_after_the_main_one(tmp_path, monkeypatch):
     s, p = _paths(tmp_path)
-    monkeypatch.setenv("BURNIN_TEST_DRIVE", str(tmp_path / "stick"))
-    s.app.overflow_dirs = ["  ", "%BURNIN_TEST_DRIVE%", str(tmp_path / "spare")]
+    monkeypatch.setenv("ASHVANE_TEST_DRIVE", str(tmp_path / "stick"))
+    s.app.overflow_dirs = ["  ", "%ASHVANE_TEST_DRIVE%", str(tmp_path / "spare")]
 
     drives = clip_drives(s, p)
     assert drives[0] == p.clips                       # the main folder is always tried first

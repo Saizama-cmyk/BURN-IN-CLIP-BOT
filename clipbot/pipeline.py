@@ -154,7 +154,7 @@ class Pipeline:
         missing = [n for n, exe in (("ffmpeg", ffmpeg_exe(s)), ("ffprobe", ffprobe_exe(s))) if not exe]
         if s.app.check_ffmpeg_on_start and missing:
             self.blocked = (f"{' and '.join(missing)} not found — captures are off until you install "
-                            f"it or set Settings → Paths, then restart BURN-IN")
+                            f"it or set Settings → Paths, then restart Ashvane")
             logger.error(self.blocked)
         else:
             loops += [(self._discovery_loop(), "discovery"), (self._detector_loop(), "detector"),

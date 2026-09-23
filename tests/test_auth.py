@@ -80,3 +80,17 @@ def test_two_profiles_cannot_share_a_password():
         store.create("Sam", "something-else-9", 8)     # the name is taken too
     store.create("Alex", "something-else-9", 8)        # its own name and password: fine
     assert len(store.profiles()) == 2
+
+
+def test_phone_session_ignores_idle_lock(isolated_home, monkeypatch):
+    """The phone has its own Face ID lock: the dashboard's idle auto-lock must not sign it out."""
+    store = ProfileStore()
+    pid = store.create("Sam", "password123", 8)["id"]
+    browser = store.create_session(pid, 12)
+    phone = store.create_session(pid, 90 * 24, device=True)
+    later = time.time() + 2 * 3600                    # two idle hours, auto-lock is 30 min
+    monkeypatch.setattr(time, "time", lambda: later)
+    assert store.check(browser, 30) is None
+    assert store.check(phone, 30) is not None
+    monkeypatch.setattr(time, "time", lambda: later + 91 * 24 * 3600)
+    assert store.check(phone, 30) is None             # it still expires eventually

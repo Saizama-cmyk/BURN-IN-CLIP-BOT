@@ -1,11 +1,11 @@
 # Notices
 
-**BURN-IN**, © BURN-IN. Licensed under the GNU Affero General Public
+**Ashvane**, © Ashvane. Licensed under the GNU Affero General Public
 License v3.0 (see `LICENSE`). You may use, study, change and share it; if you run a modified
 version as a network service, you must offer its source code to that service's users.
 
 ## Trademarks
-"BURN-IN" and "BURN-IN" are names used by BURN-IN. Twitch, Kick, YouTube, TikTok,
+"Ashvane" is the name of this project. Twitch, Kick, YouTube, TikTok,
 Instagram, Facebook, Discord, NVIDIA, Ollama and all other product names are trademarks of their
 respective owners. They are mentioned only to describe what this software works with. This
 project is **not affiliated with, endorsed by, or sponsored by** any of them.

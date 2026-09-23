@@ -1,9 +1,9 @@
-# BURN-IN v1.0.0: complete guide
+# Ashvane v1.0.0: complete guide
 
 A free, local, open-source (AGPL-3.0) Windows app. It watches Twitch and Kick streams, catches hype moments, cuts vertical clips, captions them, uses local AI to judge the clips and write the titles, and posts them automatically. No paid APIs; everything runs on your PC.
 
 ## Install
-- **Full installer:** `dist\BURN-IN-Setup-1.0.0.exe` (about 1 GB, includes everything). Run it, accept the terms, and it offers to install Ollama.
+- **Full installer:** `dist\Ashvane-Setup-1.0.0.exe` (about 1 GB, includes everything). Run it, accept the terms, and it offers to install Ollama.
 - **Web installer:** a small file that downloads the latest full installer from GitHub Releases. Built by `installer\publish_release.bat` once the GitHub repo exists.
 - **Updates:** set Settings → Updates → repo (`owner/name`) and the app checks on start. "Update now" installs silently, keeps your data and restarts.
 - **Your data** lives in `%LOCALAPPDATA%\ClipBot` (legacy folder name, kept on purpose so existing data carries over).
@@ -40,7 +40,7 @@ A free, local, open-source (AGPL-3.0) Windows app. It watches Twitch and Kick st
 - **Status card** (click it): system log with events, issues and analytics.
 - **Desktop pet:**
   - Runs as a click-through overlay across your whole desktop, so it moves at 60 fps without dragging a window around — that was the old stutter.
-  - Because a see-through window gets no mouse messages from Windows, BURN-IN tracks the cursor itself: hover opens the card, drag moves the pet, double-click opens the app, and the card's buttons work.
+  - Because a see-through window gets no mouse messages from Windows, Ashvane tracks the cursor itself: hover opens the card, drag moves the pet, double-click opens the app, and the card's buttons work.
   - Hover card floats above the pet with stats, the hottest stream and graphs.
 - **Tray:** closing the window keeps it running. Start with Windows is optional and starts it quietly.
 - **Look:** sterling chrome hardware on black, engraved labels, machined bevels, one ember lamp that only ever means ON AIR. All art is original (Blender scripts in `art/`).
@@ -59,12 +59,12 @@ A free, local, open-source (AGPL-3.0) Windows app. It watches Twitch and Kick st
 ## Legal
 - LICENSE (AGPL-3.0), NOTICE.md, TERMS.md, PRIVACY.md. Terms are accepted in the installer and again when a profile is created.
 - You are responsible for the rights to what you repost; "Blocked streamers" handles takedown requests.
-- **Trademark:** a USPTO search on 2026-09-19 found no live software mark for "BURNIN"; a live clothing registration (class 025, serial 98517926) blocks merch under that name. Not legal advice.
+- **Name:** "Ashvane" is a coined word. Web searches on 2026-09-23 found no app, software company or clipping tool using it. That is not a trademark clearance; search USPTO (tmsearch.uspto.gov) before registering or selling merch under it. Not legal advice.
 
 ## Build and release (developer)
 - **Tests:** `.venv\Scripts\python -m pytest -q`.
 - **Dev run:** `run.bat`.
-- **Build:** `installer\build_installer.bat` → `dist\BURN-IN-Setup-1.0.0.exe`.
+- **Build:** `installer\build_installer.bat` → `dist\Ashvane-Setup-1.0.0.exe`.
 - **Publish:** `winget install GitHub.cli`, `gh auth login`, create a public repo, `set CLIPBOT_REPO=owner/name`, `installer\publish_release.bat`.
 - **Prompt upgrades:** prompts live in settings.json, so `config.upgrade_prompts` replaces a stored prompt that still matches an older shipped default. Add the old prompt's sha256 to `PROMPT_FIELDS` whenever you change a default, or existing installs keep the old one.
 

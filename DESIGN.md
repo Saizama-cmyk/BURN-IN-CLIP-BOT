@@ -1,4 +1,4 @@
-# BURN-IN interface decisions
+# Ashvane interface decisions
 
 - **Subject:** a Windows editing desk that watches live streams and turns earned reactions into short, captioned clips.
 - **Ground:** preview monitors, edit brackets, timecode, a playhead, a render queue. Monitoring must stay readable for hours.

@@ -1,7 +1,7 @@
-"""Move BURN-IN's data when you pick a new folder.
+"""Move Ashvane's data when you pick a new folder.
 
 Choosing a new location on the Storage page updates the setting and records a pending move
-in ``<profile home>/pending_moves.json``. Nothing is moved while BURN-IN is running (the
+in ``<profile home>/pending_moves.json``. Nothing is moved while Ashvane is running (the
 database and capture files are open); the move happens at the next start, before anything
 opens them. Files that already exist at the destination are never overwritten.
 """
@@ -81,7 +81,7 @@ def apply_pending(settings: Settings) -> list[str]:
             continue
         try:
             if m["kind"] == "data":
-                # only BURN-IN's own data files, plus sub-folders that follow the data folder
+                # only Ashvane's own data files, plus sub-folders that follow the data folder
                 follow = tuple(name for name, attr in (("buffer", "buffer_dir"), ("work", "work_dir"),
                                                        ("clips", "clips_dir"), ("logs", "logs_dir"))
                                if not getattr(settings.app, attr))

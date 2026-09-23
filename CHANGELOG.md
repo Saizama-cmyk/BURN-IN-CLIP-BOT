@@ -1,12 +1,36 @@
 # Changelog
 
-Every released version of BURN-IN, newest first. The desktop app and the phone app ship on their
+Every released version of Ashvane (called BURN-IN until 1.1.0), newest first. The desktop app and the phone app ship on their
 own schedules, so they have their own version numbers: desktop releases are tagged `v<version>`,
 phone releases `phone-v<version>`.
 
 Dates are the day the release was tagged.
 
 ## Desktop
+
+### 1.1.0 — 2026-09-23
+
+**New name: Ashvane.** Same app, same settings, same clips. The old name was hard to search,
+clashed with a clothing trademark and said nothing good about the product.
+
+- New identity rendered in Blender: two metal vanes leaning into an A, cut through by an ember
+  slash. It is the icon everywhere Windows shows one (taskbar, Start, title bar, tray, Alt+Tab,
+  installer, Apps list), and the animated splash when the app opens.
+- Everything Windows knows the app by carries the new name: `Ashvane.exe` in
+  `%LOCALAPPDATA%\Programs\Ashvane`, the Start menu entry and desktop shortcut, the Apps &
+  Features entry, the taskbar identity and the "Start with Windows" entry.
+- Your data moves by itself. On the first start the data folder is renamed from
+  `%LOCALAPPDATA%\ClipBot` to `%LOCALAPPDATA%\Ashvane` (instant, nothing is copied) and every stored
+  file path is pointed at the new place. Saved keys and tokens still open.
+- Updating from BURN-IN removes its old program folder, shortcuts and autostart entry, so there is
+  one app, not two. The phone-remote firewall script also removes the rule under the old name.
+
+**For the phone assistant**
+
+- The PC can now look at pictures and watch videos for the phone: `/api/assistant/upload`,
+  `/look` and `/watch`. A link is fetched the way streams are (Twitch, Kick, YouTube and plain
+  video links); only the first few minutes are taken, and uploads are deleted after a few hours.
+  All of it waits its turn on the GPU behind the clip pipeline, so it never slows clipping down.
 
 ### 1.0.4 — 2026-09-23
 
@@ -101,6 +125,24 @@ First release.
 - Judge profiles that adapt to your GPU, and automatic updates.
 
 ## Phone
+
+### 1.0.18 — 2026-09-23
+
+- New name and look: **Ashvane**, with the same Blender-rendered icon as the desktop app and a new
+  launch screen. It installs as a new app (new app ID), so after installing it, sign in to your
+  PC once more and delete the old BURN-IN app. The assistant's model downloads again.
+
+### 1.0.17 — 2026-09-23
+
+- **Face ID, Touch ID or your passcode** lock the app on iPhone; fingerprint, face unlock or your
+  PIN on Android. It asks when the app opens and again after a minute away. The phone does the
+  checking; the app never sees or stores any of it.
+- **The assistant grew up.** Attach photos, videos and files. Skills you call with `/name` -
+  research, learn, go-over, grill-me, watch-this, reverse-engineer, summarize, brainstorm, plan
+  and explain-code - plus your own, written here or imported from a SKILL.md link. Rules and
+  custom instructions that apply to every chat, saved chat history, and a Code mode.
+- It still thinks on the phone. The PC is only asked to see pictures and watch videos, and only
+  when it is reachable.
 
 ### 1.0.16 — 2026-09-23
 

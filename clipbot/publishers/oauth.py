@@ -100,7 +100,7 @@ class OAuthManager:
 
     async def callback_from_url(self, platform: str, landed_url: str) -> None:
         """Finish a sign-in from the address the browser ended up on (for when the redirect
-        page cannot forward to BURN-IN): pulls ``code`` and ``state`` out of it."""
+        page cannot forward to Ashvane): pulls ``code`` and ``state`` out of it."""
         q = parse_qs(urlsplit(landed_url.strip()).query)
         if q.get("error"):
             raise PublishError(f"{platform} sign-in was cancelled: "

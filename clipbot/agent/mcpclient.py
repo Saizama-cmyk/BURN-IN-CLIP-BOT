@@ -10,7 +10,7 @@ Servers are configured in ``<data>/agent/mcp.json``, the same shape other MCP cl
 
 Each server is started on demand, asked what tools it has, and stopped when the app closes.
 Nothing is started automatically at boot: a misbehaving server should not be able to stop
-BURN-IN from starting.
+Ashvane from starting.
 """
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ class McpClient:
         await self._request(server, "initialize", {
             "protocolVersion": PROTOCOL,
             "capabilities": {},
-            "clientInfo": {"name": "BURN-IN", "version": "1"},
+            "clientInfo": {"name": "Ashvane", "version": "1"},
         })
         await self._notify(server, "notifications/initialized", {})
         listed = await self._request(server, "tools/list", {})

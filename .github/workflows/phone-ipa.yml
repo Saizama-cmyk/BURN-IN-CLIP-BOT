@@ -1,4 +1,4 @@
-# Builds BURN-IN Remote for iPhone (.ipa) and Android (.apk) on free GitHub runners.
+# Builds Ashvane for iPhone (.ipa) and Android (.apk) on free GitHub runners.
 #
 # Apple's toolchain only runs on macOS, so the iOS build uses a macOS runner; Android builds on
 # Linux. The .ipa is unsigned on purpose: your sideloader (AltStore, SideStore, Feather,
@@ -90,13 +90,13 @@ jobs:
           test -n "$APP" || { echo "no .app was produced"; exit 1; }
           mkdir -p Payload
           cp -R "$APP" Payload/
-          zip -qry BURN-IN-Remote.ipa Payload
-          ls -lh BURN-IN-Remote.ipa
+          zip -qry Ashvane.ipa Payload
+          ls -lh Ashvane.ipa
 
       - uses: actions/upload-artifact@v4
         with:
-          name: BURN-IN-Remote-ipa
-          path: phone/ios/BURN-IN-Remote.ipa
+          name: Ashvane-ipa
+          path: phone/ios/Ashvane.ipa
           if-no-files-found: error
 
   android:
@@ -147,13 +147,13 @@ jobs:
         run: |
           APK=$(find app/build/outputs/apk -name "*.apk" | head -1)
           test -n "$APK" || { echo "no apk produced"; exit 1; }
-          cp "$APK" ../BURN-IN-Remote.apk
-          ls -lh ../BURN-IN-Remote.apk
+          cp "$APK" ../Ashvane.apk
+          ls -lh ../Ashvane.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: BURN-IN-Remote-apk
-          path: phone/BURN-IN-Remote.apk
+          name: Ashvane-apk
+          path: phone/Ashvane.apk
           if-no-files-found: error
 
   publish:
@@ -185,10 +185,10 @@ jobs:
             gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
             # prerelease: the desktop updater reads /releases/latest and needs the installer there
             gh release create "$TAG" "$IPA" $APK --prerelease \
-              --title "BURN-IN Remote $VERSION" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
+              --title "Ashvane $VERSION" --notes "$NOTES" --repo "$GITHUB_REPOSITORY"
           done
           SIZE=$(stat -c%s "$IPA")
-          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/phone-latest/BURN-IN-Remote.ipa"
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/phone-latest/Ashvane.ipa"
           python3 installer/altstore_source.py "$GITHUB_REPOSITORY" "phone-v$VERSION" "$URL" "$SIZE"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

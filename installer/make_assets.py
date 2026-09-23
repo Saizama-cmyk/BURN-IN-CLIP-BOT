@@ -1,4 +1,4 @@
-"""Build-time assets for the BURN-IN installer and exe (run with the project venv).
+"""Build-time assets for the Ashvane installer and exe (run with the project venv).
 
     python installer/make_assets.py
 Writes installer/version_info.txt (PyInstaller --version-file: company, product, version shown
@@ -36,9 +36,9 @@ def version_file() -> None:
     StringStruct('CompanyName', '{COMPANY}'),
     StringStruct('FileDescription', '{PRODUCT}'),
     StringStruct('FileVersion', '{__version__}'),
-    StringStruct('InternalName', 'BurnIn'),
+    StringStruct('InternalName', 'Ashvane'),
     StringStruct('LegalCopyright', '(c) {COMPANY}'),
-    StringStruct('OriginalFilename', 'BurnIn.exe'),
+    StringStruct('OriginalFilename', 'Ashvane.exe'),
     StringStruct('ProductName', '{PRODUCT}'),
     StringStruct('ProductVersion', '{__version__}')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])])
@@ -128,6 +128,9 @@ def phone_icons() -> None:
     fg.alpha_composite(mark.resize((side, side), Image.LANCZOS), ((PHONE_PX - side) // 2,) * 2)
     fg.save(phone / "icon-adaptive.png")
 
+    # In-app mark (lock screen, header): the mark alone on transparent.
+    mark.resize((WEB_PX, WEB_PX), Image.LANCZOS).save(phone / "icon.png")
+
     # Notifications: Android draws these as a silhouette, so shape is all that survives.
     fg.resize((256, 256), Image.LANCZOS).save(phone / "icon-notification.png")
 
@@ -137,10 +140,39 @@ def phone_icons() -> None:
     logger.info("phone and web icons rendered from mark.png")
 
 
+SPLASH_PX = 1284          # square; Expo scales it to fit ("contain") on the brand plate
+
+
+def phone_splash() -> None:
+    """The phone's launch screen: the Blender mark over the name, on transparent.
+
+    Expo paints app.json's backgroundColor behind it, the same near-black as the icon plate,
+    so the launch screen, the icon and the app open as one continuous piece."""
+    mark = Image.open(STATIC / "mark.png").convert("RGBA")
+    out = Image.new("RGBA", (SPLASH_PX, SPLASH_PX), (0, 0, 0, 0))
+    side = int(SPLASH_PX * .42)
+    out.alpha_composite(mark.resize((side, side), Image.LANCZOS), ((SPLASH_PX - side) // 2, int(SPLASH_PX * .2)))
+    word = PRODUCT.upper()
+    size = int(SPLASH_PX * .075)
+    f = font(size)
+    probe = ImageDraw.Draw(out)
+    track = int(size * .32)                    # letter-spaced, like the desktop splash
+    widths = [probe.textlength(ch, font=f) for ch in word]
+    x = (SPLASH_PX - (sum(widths) + track * (len(word) - 1))) / 2
+    y = int(SPLASH_PX * .68)
+    layer = Image.new("RGBA", out.size, (0, 0, 0, 0))
+    for ch, w in zip(word, widths):
+        chrome_text(layer, (int(x), y), ch, size)
+        x += w + track
+    out.alpha_composite(layer)
+    out.save(ROOT / "phone" / "assets" / "splash.png")
+    logger.info("phone splash rendered")
+
+
 LISTING_W, LISTING_H = 1290, 2796     # the size sideloaders show for a 6.7" iPhone
 LISTING_CARDS = (
     ("Your clip desk.", "Anywhere.",
-     "What BURN-IN is watching, what it has cut and what is about to post - live, on your phone."),
+     "What Ashvane is watching, what it has cut and what is about to post - live, on your phone."),
     ("Every stream,", "one glance.",
      "The streams on the board with their viewers and how hot chat is running right now."),
     ("Post from", "your pocket.",
@@ -199,14 +231,14 @@ def legal_copies() -> None:
         (dst / name).write_bytes((ROOT / name).read_bytes())
 
 
-DEFAULT_REPO = "Saizama-cmyk/BURN-IN-CLIP-BOT"   # where builds are published; CLIPBOT_REPO wins
+DEFAULT_REPO = "Saizama-cmyk/Ashvane"   # where builds are published; CLIPBOT_REPO wins
 
 
 def release_config() -> None:
     """Bake the update source into the build, so a fresh install updates itself with no setup."""
     repo = (os.environ.get("CLIPBOT_REPO", "").strip() or DEFAULT_REPO)
     if repo:
-        error = _source_error(repo, "BURN-IN-Setup.exe")
+        error = _source_error(repo, "Ashvane-Setup.exe")
         if error:
             raise ValueError(error)
     (ROOT / "assets").mkdir(exist_ok=True)
@@ -221,6 +253,7 @@ def main() -> None:
     version_file()
     wizard_images()
     phone_icons()
+    phone_splash()
     listing_cards()
     logger.info("installer assets ready (version %s)", __version__)
 

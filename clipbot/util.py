@@ -22,7 +22,7 @@ _job_handle = None
 
 # --------------------------------------------------------------------------- job object
 def _init_job() -> None:
-    """Put every child in a job that is killed when BURN-IN exits, even on a crash."""
+    """Put every child in a job that is killed when Ashvane exits, even on a crash."""
     global _job_handle
     if _job_handle is not None or os.name != "nt":
         return
@@ -59,7 +59,7 @@ def _init_job() -> None:
                     ("PeakJobMemoryUsed", ctypes.c_size_t)]
 
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
-    JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x800      # lets "Restart BURN-IN" relaunch outlive us
+    JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x800      # lets "Restart Ashvane" relaunch outlive us
     JobObjectExtendedLimitInformation = 9
     info = EXTENDED()
     info.BasicLimitInformation.LimitFlags = (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE

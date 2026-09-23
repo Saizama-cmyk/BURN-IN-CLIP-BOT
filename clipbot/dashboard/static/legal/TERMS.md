@@ -1,10 +1,10 @@
-# Terms of Use: BURN-IN
+# Terms of Use: Ashvane
 
-By installing or using BURN-IN ("the software") you agree to these terms.
+By installing or using Ashvane ("the software") you agree to these terms.
 
 **1. What it is.** Free, open-source software that runs on your own computer. It watches public
 live streams, cuts short clips of moments you choose to keep, and can post them to accounts
-*you* connect. BURN-IN runs no servers for it and never receives your data, clips or passwords.
+*you* connect. Ashvane runs no servers for it and never receives your data, clips or passwords.
 
 **2. You are responsible for what you post.** Stream content belongs to the streamers and
 platforms. Before you post clips you must make sure you have the right to. That can mean the
@@ -26,10 +26,10 @@ violent content involving minors, to impersonate people, or to break any law. Th
 safety filter helps but is not perfect; **you** review what goes out.
 
 **6. No warranty.** The software is provided **"as is"**, without warranty of any kind, as
-stated in the GNU AGPL v3.0 (sections 15–16). BURN-IN is not liable for account strikes, bans,
+stated in the GNU AGPL v3.0 (sections 15–16). Ashvane is not liable for account strikes, bans,
 takedowns, lost data, costs or any other damage from using it.
 
-**7. Trademarks.** "BURN-IN" and "BURN-IN" identify this project. Platform names are
+**7. Trademarks.** "Ashvane" identifies this project. Platform names are
 trademarks of their owners; this project is not affiliated with or endorsed by them.
 
 **8. Changes.** These terms may be updated with new versions. The version in the app applies.

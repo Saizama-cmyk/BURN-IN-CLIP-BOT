@@ -1,4 +1,4 @@
-"""Check GitHub releases and download verified BURN-IN installers.
+"""Check GitHub releases and download verified Ashvane installers.
 
 The stable installer asset name is shared by the desktop updater and web setup.
 User settings and data remain in the existing ClipBot data directory.
@@ -92,7 +92,7 @@ async def check(settings: Settings, http: httpx.AsyncClient) -> dict:
     try:
         r = await http.get(GITHUB_API.format(repo=repo), timeout=u.timeout_s,
                            headers={"Accept": "application/vnd.github+json",
-                                    "User-Agent": f"BURN-IN/{__version__}"})
+                                    "User-Agent": f"Ashvane/{__version__}"})
     except httpx.HTTPError as exc:
         logger.warning("update check failed: %s", exc)
         return {**out, "error": f"Couldn't reach GitHub: {exc}"}

@@ -1,6 +1,6 @@
 """First-run setup for the AI: download the Ollama models this PC's judge profile needs.
 
-A new install has Ollama (the installer offers it) but no models. BURN-IN checks what the
+A new install has Ollama (the installer offers it) but no models. Ashvane checks what the
 active profile uses (judge, vision, writer) and pulls whatever is missing, one at a time, in
 the background. Progress shows on the Setup page; nothing is pulled when ``ai.auto_pull`` is off.
 """

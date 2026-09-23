@@ -1,4 +1,4 @@
-# BURN-IN — brief for Claude Code
+# Ashvane — brief for Claude Code
 
 Free, local, open-source (AGPL-3.0) stream clipper for Windows: watch top Twitch/Kick streams,
 detect hype from chat/keywords/audio, cut from a rolling buffer, transcribe (faster-whisper),

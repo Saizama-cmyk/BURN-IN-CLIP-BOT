@@ -1,7 +1,7 @@
 {
-  "name": "BURN-IN Remote",
-  "short_name": "BURN-IN",
-  "description": "Run your BURN-IN clip desk from your phone.",
+  "name": "Ashvane",
+  "short_name": "Ashvane",
+  "description": "Run your Ashvane clip desk from your phone.",
   "start_url": "/remote",
   "scope": "/",
   "display": "standalone",

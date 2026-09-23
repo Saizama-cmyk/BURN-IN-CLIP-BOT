@@ -48,6 +48,7 @@ BEARER = "bearer "
 MESH_RANGE = ipaddress.ip_network("100.64.0.0/10")   # carrier-grade NAT space; Tailscale uses it
 MESH_SUFFIX = ".ts.net"      # Tailscale MagicDNS, reachable only inside the tailnet
 HTTPS_PORT = "443"
+HOURS_PER_DAY = 24
 _ID_RE = re.compile(r"^[0-9a-f]{6,32}$")
 _OAUTH_PLATFORMS = ("youtube", "tiktok")
 _PUBLIC = ("/static/", "/api/auth/", "/oauth/youtube/callback", "/oauth/tiktok/callback")
@@ -60,6 +61,16 @@ def _token(request: Request) -> str | None:
     if auth.lower().startswith(BEARER):
         return auth[len(BEARER):].strip() or None
     return request.cookies.get(COOKIE)
+
+
+def _is_app(request: Request, body: dict) -> bool:
+    """A sign-in from the phone app rather than a browser. The app says so; older builds that
+    don't are still recognised, because a browser always sends Origin / Sec-Fetch headers on a
+    POST and the native app sends neither."""
+    if body.get("device") == "phone":
+        return True
+    h = request.headers
+    return not h.get("origin") and not h.get("sec-fetch-site") and not request.cookies.get(COOKIE)
 
 
 def _private_host(host: str, port: int) -> bool:
@@ -90,17 +101,17 @@ def validation_errors(exc: ValidationError) -> list[dict]:
 
 def _page(title: str, body: str) -> HTMLResponse:
     return HTMLResponse(
-        "<!doctype html><meta charset=utf-8><title>BURN-IN</title>"
+        "<!doctype html><meta charset=utf-8><title>Ashvane</title>"
         "<body style='background:#0F1B2D;color:#E8EDF2;font-family:IBM Plex Sans,Segoe UI,sans-serif;"
         "display:grid;place-items:center;height:100vh;margin:0'><div style='max-width:560px'>"
         f"<h1 style='font-family:Barlow Condensed,sans-serif;color:#F2A93B'>{title}</h1>"
-        f"<p>{body}</p><p style='color:#8FA3BF'>You can close this tab and return to BURN-IN."
+        f"<p>{body}</p><p style='color:#8FA3BF'>You can close this tab and return to Ashvane."
         "</p></div></body>")
 
 
 def create_app(ctx) -> FastAPI:
     """``ctx`` is the running ``ClipBotApp`` (settings, pipeline, quit/restart hooks)."""
-    app = FastAPI(title="BURN-IN", docs_url=None, redoc_url=None,
+    app = FastAPI(title="Ashvane", docs_url=None, redoc_url=None,
                   openapi_url=None)
     profiles = ProfileStore()
 
@@ -154,7 +165,9 @@ def create_app(ctx) -> FastAPI:
             return JSONResponse({"ok": False, "error": str(exc)}, status_code=429)
         if not ok:
             return JSONResponse({"ok": False, "error": "Wrong password"}, status_code=401)
-        token = await asyncio.to_thread(profiles.create_session, pid, a_cfg().session_hours)
+        phone = _is_app(request, b)
+        hours = a_cfg().phone_session_days * HOURS_PER_DAY if phone else a_cfg().session_hours
+        token = await asyncio.to_thread(profiles.create_session, pid, hours, phone)
         switch = pid != profiles.last()
         if switch:            # another profile has its own settings/data: restart into it
             await asyncio.to_thread(profiles.set_last, pid)
@@ -441,6 +454,12 @@ def create_app(ctx) -> FastAPI:
                 "chat": snap.get("chat"), "monitors": len(snap.get("monitors") or []), **log,
                 "analytics": syslog.analytics(samples, snap)}
 
+    @app.post("/api/remote/test")
+    async def remote_test():
+        """Try every address the phone could use, from this PC, and say which one to type."""
+        from ..remote_check import check
+        return await check(ctx.settings, ctx.settings.dashboard.remote_test_timeout_s)
+
     @app.get("/api/state")
     async def state():
         snap = await ctx.pipeline.snapshot()
@@ -449,6 +468,7 @@ def create_app(ctx) -> FastAPI:
         snap["sound"] = {"on": ctx.settings.dashboard.ui_sounds, "volume": ctx.settings.dashboard.ui_volume}
         snap["viewer_poll_ms"] = ctx.settings.viewer.poll_ms
         snap["viewer_max_lag_s"] = ctx.settings.viewer.live_max_lag_s
+        snap["viewer_target_lag_s"] = ctx.settings.viewer.live_target_lag_s
         snap["viewer_keep_s"] = ctx.settings.viewer.live_keep_s
         snap["updates_on_start"] = ctx.settings.updates.check_on_start and bool(ctx.settings.updates.repo)
         snap["remote_url"] = ctx.lan_url if ctx.settings.dashboard.remote else ""
@@ -785,7 +805,7 @@ def create_app(ctx) -> FastAPI:
     @app.post("/api/oauth/{platform}/open")
     async def oauth_open(platform: str):
         """Open the provider's sign-in page in the system browser. The signed-in dashboard
-        asks for it, so the browser never needs a BURN-IN session; the callback is public
+        asks for it, so the browser never needs an Ashvane session; the callback is public
         and guarded by the one-time state."""
         if platform not in _OAUTH_PLATFORMS:
             raise HTTPException(404)
@@ -808,7 +828,7 @@ def create_app(ctx) -> FastAPI:
             await ctx.pipeline.oauth.callback(platform, code, state)
         except PublishError as exc:
             return _page("Connection failed", str(exc))
-        return _page(f"{platform.title()} connected", "BURN-IN can now post for you.")
+        return _page(f"{platform.title()} connected", "Ashvane can now post for you.")
 
     @app.post("/oauth/{platform}/paste")
     async def oauth_paste(platform: str, request: Request):

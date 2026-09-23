@@ -1,4 +1,4 @@
-"""Content safety: keep slurs (and optionally profanity) out of everything BURN-IN posts.
+"""Content safety: keep slurs (and optionally profanity) out of everything Ashvane posts.
 
 Only slurs and derogatory terms are blocked by default (casual slang like the "-a" form is left
 alone on purpose; add it under Settings → Safety → Also block if you want it gone).

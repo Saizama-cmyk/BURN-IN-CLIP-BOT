@@ -1,27 +1,27 @@
 {
   "expo": {
-    "name": "BURN-IN",
-    "slug": "burn-in-remote",
+    "name": "Ashvane",
+    "slug": "ashvane",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon-ios.png",
-    "scheme": "burnin",
+    "scheme": "ashvane",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#070708",
     "splash": {
-      "image": "./assets/icon-ios.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#070708"
     },
     "ios": {
-      "bundleIdentifier": "os.spike.burnin.remote",
+      "bundleIdentifier": "app.ashvane.mobile",
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "BURN-IN Remote talks to the BURN-IN app running on your PC over your local network.",
+        "NSLocalNetworkUsageDescription": "Ashvane talks to the Ashvane app running on your PC over your local network.",
         "UIBackgroundModes": []
       },
       "entitlements": {
@@ -30,7 +30,7 @@
       "icon": "./assets/icon-ios.png"
     },
     "android": {
-      "package": "os.spike.burnin.remote",
+      "package": "app.ashvane.mobile",
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon-adaptive.png",

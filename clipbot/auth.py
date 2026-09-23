@@ -200,13 +200,15 @@ class ProfileStore:
             logger.warning("sessions file corrupt; everyone signs in again")
             return {}
 
-    def create_session(self, profile_id: str, hours: float) -> str:
+    def create_session(self, profile_id: str, hours: float, device: bool = False) -> str:
+        """A new sign-in. ``device`` marks the phone app: it has its own biometric lock, so it is
+        exempt from the dashboard's idle auto-lock (it still expires after ``hours``)."""
         token = secrets.token_urlsafe(TOKEN_BYTES)
         now = time.time()
         with self._lock:
             sess = {k: v for k, v in self._read_sessions().items() if v["expires"] > now}
             sess[_token_hash(token)] = {"profile_id": profile_id, "expires": now + hours * 3600,
-                                        "last_seen": now}
+                                        "last_seen": now, "device": device}
             atomic_write(self.sessions_path, json.dumps(sess))
         return token
 
@@ -219,7 +221,9 @@ class ProfileStore:
         with self._lock:
             sess = self._read_sessions()
             s = sess.get(key)
-            if s is None or s["expires"] <= now or (idle_min and now - s["last_seen"] > idle_min * 60):
+            idle = bool(s and idle_min and not s.get("device")
+                        and now - s["last_seen"] > idle_min * 60)
+            if s is None or s["expires"] <= now or idle:
                 if s is not None:
                     sess.pop(key)
                     atomic_write(self.sessions_path, json.dumps(sess))

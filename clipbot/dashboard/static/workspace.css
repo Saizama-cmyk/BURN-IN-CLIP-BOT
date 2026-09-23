@@ -1,4 +1,4 @@
-/* BURN-IN editing desk. Decisions and rationale: /DESIGN.md. */
+/* Ashvane editing desk. Decisions and rationale: /DESIGN.md. */
 :root{--base:#101113;--base-2:#151619;--panel:#1B1D20;--panel-2:#232529;--glass:#1B1D20;--glass-2:#232529;--glass-3:#2C2E32;--text:#F3F0E9;--muted:#A8A6A1;--faint:#96958F;--line:#343638;--line-2:#535558;--amber:#FF894F;--amber-2:#FFA87D;--cyan:#FFAD82;--ember:#FF894F;--amber-dim:#35271F;--cyan-dim:#35271F;--chrome:#FF894F;--head:Bahnschrift,'Segoe UI',sans-serif;--body:'Segoe UI',system-ui,sans-serif;--r:8px;--rc:5px;--rail:210px}
 body{background:var(--base);background-image:none}
 .rail{background:#151619;backdrop-filter:none;padding:24px 14px 16px;gap:30px}

@@ -1,11 +1,14 @@
-## BURN-IN 1.0.4
+## Ashvane 1.1.0
 
-**Fixed**
+**BURN-IN is now Ashvane.** Same app, same settings, same clips.
 
-- No more crawl after starting. It used to resume every clip the last session left unfinished,
-  however old - dozens at once - which flooded the queue and stalled every capture for minutes.
-  Clips older than 15 minutes are now written off before they are queued.
+- New Blender-rendered icon and splash, everywhere Windows shows the app.
+- Installs as `Ashvane.exe`. The update removes the old program folder, shortcuts and autostart
+  entry, so you end up with one app.
+- Your data moves itself on first start, from `%LOCALAPPDATA%\ClipBot` to `%LOCALAPPDATA%\Ashvane`,
+  with every stored path updated. Keys and tokens keep working.
+- The phone assistant can ask the PC to look at pictures and watch videos. It waits its turn
+  behind clipping on the GPU.
 
-Also in this line of releases: the live viewer plays again, storage no longer fills up in hours,
-and titles hook instead of narrate. The full history is in
-[CHANGELOG.md](https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/blob/main/CHANGELOG.md).
+The full history is in
+[CHANGELOG.md](https://github.com/Saizama-cmyk/Ashvane/blob/main/CHANGELOG.md).

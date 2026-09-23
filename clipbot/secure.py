@@ -16,7 +16,8 @@ logger = logging.getLogger("clipbot.secure")
 
 PREFIX = "dpapi:"
 CRYPTPROTECT_UI_FORBIDDEN = 0x01
-_ENTROPY = b"BURN-IN secrets v1"   # app-specific salt so other DPAPI blobs can't be swapped in
+_ENTROPY = b"Ashvane secrets v1"   # app-specific salt so other DPAPI blobs can't be swapped in
+_LEGACY_ENTROPY = (b"BURN-IN secrets v1",)   # values saved before the rename still open
 
 
 class SecureError(RuntimeError):
@@ -36,11 +37,11 @@ def available() -> bool:
     return os.name == "nt"
 
 
-def _call(fn_name: str, data: bytes) -> bytes:
+def _call(fn_name: str, data: bytes, entropy: bytes = _ENTROPY) -> bytes:
     crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     src, _keep = _blob(data)
-    ent, _keep2 = _blob(_ENTROPY)
+    ent, _keep2 = _blob(entropy)
     out = _Blob()
     fn = getattr(crypt32, fn_name)
     ok = fn(ctypes.byref(src), None, ctypes.byref(ent), None, None,
@@ -70,4 +71,10 @@ def unprotect(text: str) -> str:
         raw = base64.b64decode(text[len(PREFIX):])
     except ValueError as exc:
         raise SecureError(f"corrupt encrypted value: {exc}") from exc
-    return _call("CryptUnprotectData", raw).decode("utf-8")
+    for entropy in (_ENTROPY, *_LEGACY_ENTROPY):
+        try:
+            return _call("CryptUnprotectData", raw, entropy).decode("utf-8")
+        except SecureError:
+            if entropy == _LEGACY_ENTROPY[-1]:
+                raise
+    raise SecureError("unreachable")

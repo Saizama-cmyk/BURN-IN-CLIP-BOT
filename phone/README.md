@@ -1,14 +1,14 @@
-# BURN-IN Remote (iPhone)
+# Ashvane (iPhone)
 
-A native app that runs your BURN-IN desk from your phone: status, streams, clips, post-now,
-pause and the log. It talks to BURN-IN on your PC over your own Wi-Fi — nothing goes through the
+A native app that runs your Ashvane desk from your phone: status, streams, clips, post-now,
+pause and the log. It talks to Ashvane on your PC over your own Wi-Fi — nothing goes through the
 internet, and there is no account.
 
 ## Get the file
 
 Every build is published as a release, and one URL always points at the newest one:
 
-**https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/download/phone-latest/BURN-IN-Remote.ipa**
+**https://github.com/Saizama-cmyk/Ashvane/releases/download/phone-latest/Ashvane.ipa**
 
 It is unsigned on purpose — your sideloader signs it with your own Apple ID, which is what makes
 sideloading work without a paid developer account.
@@ -33,7 +33,7 @@ Apple's rule, not this app's.
 Add this **source** once and new builds appear as updates in the app list:
 
 ```
-https://raw.githubusercontent.com/Saizama-cmyk/BURN-IN-CLIP-BOT/main/docs/sideload.json
+https://raw.githubusercontent.com/Saizama-cmyk/Ashvane/main/docs/sideload.json
 ```
 
 Works in AltStore, SideStore, Feather and anything else that reads the standard source format.
@@ -42,7 +42,7 @@ always serves the newest build.
 
 ## Connect it
 
-1. On the PC: **Settings → Dashboard → Phone remote**, then restart BURN-IN.
+1. On the PC: **Settings → Dashboard → Phone remote**, then restart Ashvane.
 2. The Live desk grows a **Phone remote** button showing the address, e.g. `192.168.0.72:8787`.
 3. In the app, type that address and your profile password. The session token is kept in the iOS
    keychain; the password is never stored.
@@ -50,8 +50,8 @@ always serves the newest build.
 ## If it cannot connect
 
 - Phone and PC must be on the same network (not guest Wi-Fi, not cellular).
-- BURN-IN must be running with Phone remote switched on.
-- Allow BURN-IN through the firewall on private networks when Windows asks.
+- Ashvane must be running with Phone remote switched on.
+- Allow Ashvane through the firewall on private networks when Windows asks.
 - Your PC's address can change when the router reissues it — retype it, or give the PC a reserved
   address in your router.
 

@@ -1,4 +1,4 @@
-"""BURN-IN entry point.
+"""Ashvane entry point.
 
     python -m clipbot                 console dev mode: engine + dashboard at 127.0.0.1:8787
     python -m clipbot --window        desktop app (native window + tray)
@@ -23,7 +23,7 @@ import logging
 import os
 import webbrowser
 
-from clipbot.config import ConfigError, is_frozen, load_settings, settings_path
+from clipbot.config import ConfigError, is_frozen, load_settings, migrate_data_dir, settings_path
 
 logger = logging.getLogger("clipbot.main")
 
@@ -73,7 +73,7 @@ def run_streamlink(argv: list[str]) -> int:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="clipbot", description="BURN-IN")
+    p = argparse.ArgumentParser(prog="clipbot", description="Ashvane")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--window", action="store_true", help="desktop app with window and tray")
     mode.add_argument("--headless", action="store_true", help="engine + dashboard, no window")
@@ -109,26 +109,29 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     windowed = args.window or (is_frozen() and not (args.headless or args.console
                                                      or args.no_dashboard))
+    moved = migrate_data_dir()
     try:
         settings = load_settings()
     except ConfigError as exc:
-        return _fatal(f"BURN-IN could not read {settings_path()}:\n{exc}\n\n"
-                      "Fix or delete the file and start BURN-IN again.", windowed)
+        return _fatal(f"Ashvane could not read {settings_path()}:\n{exc}\n\n"
+                      "Fix or delete the file and start Ashvane again.", windowed)
 
     from clipbot.app import ClipBotApp, setup_logging
 
     log_file = setup_logging(settings, console=not windowed)
-    logger.info("BURN-IN starting (%s mode, settings %s, log %s)",
+    logger.info("Ashvane starting (%s mode, settings %s, log %s)",
                 "window" if windowed else "headless" if args.headless else "console",
                 settings_path(), log_file)
+    if moved:
+        logger.info("moved your data to %s (the app's new name)", moved)
 
     from clipbot.desktop import Desktop, SingleInstance, focus_existing, relaunch
 
     lock = SingleInstance() if settings.app.single_instance else None
     if lock and lock.already_running:
-        logger.info("BURN-IN is already running; focusing it")
+        logger.info("Ashvane is already running; focusing it")
         if not focus_existing(settings) and windowed:
-            return _fatal("BURN-IN is already running (check the tray).", windowed)
+            return _fatal("Ashvane is already running (check the tray).", windowed)
         return 0
 
     if windowed:

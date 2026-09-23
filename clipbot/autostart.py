@@ -1,4 +1,4 @@
-""""Start with Windows": the HKCU ...\\CurrentVersion\\Run value for ClipBot."""
+""""Start with Windows": the HKCU ...\\CurrentVersion\\Run value for the app."""
 from __future__ import annotations
 
 import logging
@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from .config import RUN_VALUE_NAME, is_frozen
+from .config import LEGACY_RUN_VALUES, RUN_VALUE_NAME, is_frozen
 
 logger = logging.getLogger("clipbot.autostart")
 
@@ -46,6 +46,12 @@ def set_autostart(enabled: bool, name: str = RUN_VALUE_NAME, command: str | None
     import winreg
 
     with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+        if name == RUN_VALUE_NAME:
+            for legacy in LEGACY_RUN_VALUES:      # an entry from before the rename
+                try:
+                    winreg.DeleteValue(key, legacy)
+                except FileNotFoundError:
+                    pass
         if enabled:
             winreg.SetValueEx(key, name, 0, winreg.REG_SZ, command or launch_command())
             logger.info("start with Windows enabled")

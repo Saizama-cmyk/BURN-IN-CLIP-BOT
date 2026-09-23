@@ -1,4 +1,4 @@
-"""Repost Twitch's most popular viewer-made clips with BURN-IN's edit on top.
+"""Repost Twitch's most popular viewer-made clips with Ashvane's edit on top.
 
 Every ``clip_import.interval_h`` the Helix clips API is asked for the most-viewed clips of the
 last ``period_h`` — for the top games discovery found and (optionally) for the streamers being

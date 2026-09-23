@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -19,12 +20,48 @@ def test_defaults_roundtrip(isolated_home):
 def test_user_data_under_localappdata(monkeypatch, tmp_path):
     monkeypatch.delenv("CLIPBOT_HOME")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-    assert C.home_dir() == tmp_path / "ClipBot"
+    assert C.home_dir() == tmp_path / "Ashvane"
     p = C.resolve_paths(C.Settings())
-    assert p.db == tmp_path / "ClipBot" / "clipbot.db"
-    assert p.clips == tmp_path / "ClipBot" / "clips"
+    assert p.db == tmp_path / "Ashvane" / "clipbot.db"
+    assert p.clips == tmp_path / "Ashvane" / "clips"
     s = C.Settings(app=C.AppCfg(clips_dir=str(tmp_path / "elsewhere")))
     assert C.resolve_paths(s).clips == tmp_path / "elsewhere"
+
+
+def test_old_data_folder_moves_and_paths_follow(monkeypatch, tmp_path):
+    """An install from before the rename: its folder moves and stored clip paths still work."""
+    import sqlite3
+    monkeypatch.delenv("CLIPBOT_HOME")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    old, new = tmp_path / "ClipBot", tmp_path / "Ashvane"
+    (old / "clips").mkdir(parents=True)
+    clip = old / "clips" / "a.mp4"
+    clip.write_bytes(b"x")
+    con = sqlite3.connect(old / "clipbot.db")
+    con.execute("create table candidates (id text, json text)")
+    con.execute("insert into candidates values ('1', ?)", (json.dumps({"final": str(clip)}),))
+    con.commit()
+    con.close()
+    (old / "facecams.json").write_text(json.dumps({"path": str(clip)}), encoding="utf-8")
+
+    assert C.home_dir() == old                      # not moved yet: the old folder is still used
+    assert C.migrate_data_dir() == new
+    assert not old.exists() and C.home_dir() == new
+    con = sqlite3.connect(new / "clipbot.db")
+    stored = json.loads(con.execute("select json from candidates").fetchone()[0])["final"]
+    con.close()
+    assert stored == str(new / "clips" / "a.mp4") and Path(stored).exists()
+    assert json.loads((new / "facecams.json").read_text(encoding="utf-8"))["path"] == stored
+    assert C.migrate_data_dir() is None             # once only
+
+
+def test_migration_leaves_a_current_folder_alone(monkeypatch, tmp_path):
+    monkeypatch.delenv("CLIPBOT_HOME")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    (tmp_path / "ClipBot").mkdir()
+    (tmp_path / "Ashvane").mkdir()
+    assert C.migrate_data_dir() is None
+    assert (tmp_path / "ClipBot").exists() and C.home_dir() == tmp_path / "Ashvane"
 
 
 def test_every_field_has_label_and_help():

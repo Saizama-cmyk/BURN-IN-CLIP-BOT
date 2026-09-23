@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BURN-IN</title>
+<title>Ashvane</title>
 <link rel="icon" href="/favicon.ico">
 <link rel="preload" href="/static/art/bg.jpg" as="image">
 <style>
 /* =====================================================================================
-   BURN-IN — BURN-IN control room
+   Ashvane — Ashvane control room
    Ground: broadcast control room / oscilloscope. Obsidian hardware under glass, one amber
    signal (action + live), cyan markers (info + selection). Rendered 3D art from Blender
    (art/spike_scene.py) carries the brand; the chrome stays quiet around it.
@@ -470,13 +470,14 @@ input[type=checkbox]{accent-color:var(--amber);width:16px;height:16px}
 #recBar{margin:12px 16px 16px}
 
 /* ---------------------------------------------------------------- splash + lock */
+.guide ol.steps{margin:8px 0 12px;padding-left:20px}.guide ol.steps li{margin:4px 0}.rtest{margin:12px 0 4px}.rtest-list{list-style:none;padding:0;margin:10px 0}.rtest-list li{margin:5px 0}.rtest-list .ok{color:var(--good,#5bd48a);font-weight:700;margin-right:6px}.rtest-list .bad{color:var(--bad,#ff6b5a);font-weight:700;margin-right:6px}.rtest-list code{font:600 12px var(--mono);padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.06)}.rtest-good{color:var(--text)}.rtest-bad{color:var(--bad,#ff6b5a)}
 #splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
   background:radial-gradient(900px 520px at 50% 42%,rgba(20,34,58,.9),rgba(4,8,15,.98) 70%),url("/static/art/bg.jpg") center/cover;
   transition:opacity .7s var(--ease),visibility .7s}
 #splash.gone{opacity:0;visibility:hidden;pointer-events:none}
 #splash .logo{display:flex;flex-direction:column;align-items:center;gap:6px}
 #splash video,#splash img.still{width:240px;height:240px;display:block;margin-bottom:-18px}
-#splash h1{margin:0;font:700 46px/1 var(--head);letter-spacing:.3em;padding-left:.3em;color:var(--text);opacity:0;animation:fadeup .7s .9s var(--ease) forwards}
+#splash h1{margin:0;font:700 46px/1 var(--head);letter-spacing:.3em;text-transform:uppercase;padding-left:.3em;color:var(--text);opacity:0;animation:fadeup .7s .9s var(--ease) forwards}
 #splash h1 b{color:var(--amber)}
 #splash p{margin:6px 0 16px;font:500 13px/1 var(--body);letter-spacing:.08em;color:var(--muted);opacity:0;animation:fadeup .7s 1.05s var(--ease) forwards}
 #splash .boot{width:200px;height:3px;background:rgba(225,229,236,.12);border-radius:999px;overflow:hidden}
@@ -768,10 +769,10 @@ nav button:hover .i3{transform:scale(1.08)}
 </svg>
 <div id="splash" aria-hidden="true"><div class="logo">
   <video id="splashVid" muted autoplay playsinline preload="auto" poster="/static/art/splash-end.png" width="240" height="240"><source src="/static/art/splash.webm" type="video/webm"></video>
-  <h1>BURN-IN</h1><p>Find the moment. Make the cut.</p><div class="boot"><i></i></div></div></div></div>
+  <h1>Ashvane</h1><p>Find the moment. Make the cut.</p><div class="boot"><i></i></div></div></div></div>
 <div id="lock" role="dialog" aria-modal="true" aria-labelledby="lockTitle"><form id="lockForm">
   <img class="lockmark" src="/static/art/mark.png" alt="">
-  <h2 id="lockTitle">BURN-IN</h2><div class="small dim" id="lockHint">Your clips. Your PC. Your workspace.</div>
+  <h2 id="lockTitle">Ashvane</h2><div class="small dim" id="lockHint">Your clips. Your PC. Your workspace.</div>
   <select id="lockProfile" aria-label="Profile"></select>
   <input type="text" id="lockName" name="username" autocomplete="username" aria-label="Profile name" placeholder="Profile name" hidden>
   <input type="password" id="lockPass" name="password" autocomplete="current-password" aria-label="Password" placeholder="Password" required>
@@ -782,7 +783,7 @@ nav button:hover .i3{transform:scale(1.08)}
   <button class="btn primary" type="submit" id="lockBtn">Unlock</button></form></div>
 <div class="shell">
 <aside class="rail">
-  <div class="brand"><img src="/static/art/mark-96.png" alt="" width="42" height="42"><div><b>BURN-IN</b><span>Your local clip studio</span></div></div>
+  <div class="brand"><img src="/static/art/mark-96.png" alt="" width="42" height="42"><div><b>Ashvane</b><span>Your local clip studio</span></div></div>
   <nav role="tablist" aria-orientation="vertical" aria-label="Sections">
     <button role="tab" aria-selected="true" data-view="live" title="Live"><i class="ico i3" style="--i:url(/static/ui/chrome/live.png);--ia:url(/static/ui/ember/live.png)" aria-hidden="true"></i><span class="t">Live</span></button>
     <button role="tab" aria-selected="false" data-view="clips" title="Clips"><i class="ico i3" style="--i:url(/static/ui/chrome/clips.png);--ia:url(/static/ui/ember/clips.png)" aria-hidden="true"></i><span class="t">Clips</span></button>
@@ -806,15 +807,15 @@ nav button:hover .i3{transform:scale(1.08)}
       </div>
     </div>
     <button class="btn block" id="pauseBtn" type="button"><i class="ico i3" style="--i:url(/static/ui/chrome/pause.png);--ia:url(/static/ui/ember/pause.png)" aria-hidden="true"></i><span class="t">Pause capture</span></button>
-    <button class="btn ghost block" id="lockBtnTop" type="button" title="Lock BURN-IN"><i class="ico i3" style="--i:url(/static/ui/chrome/lock.png);--ia:url(/static/ui/ember/lock.png)" aria-hidden="true"></i><span class="t">Lock</span></button>
+    <button class="btn ghost block" id="lockBtnTop" type="button" title="Lock Ashvane"><i class="ico i3" style="--i:url(/static/ui/chrome/lock.png);--ia:url(/static/ui/ember/lock.png)" aria-hidden="true"></i><span class="t">Lock</span></button>
   </div>
 </aside>
 <div class="content">
   <div class="topbar"><div class="grow"><h1 id="pageTitle">Live desk</h1><p id="pageSub">Watch the streams. Catch the moments worth keeping.</p></div><div class="top-tools"><button class="btn ghost" type="button" id="phoneBtn" hidden>Phone remote</button></div></div>
   <div class="banner" id="restartBanner"><span>Some changes need a restart: <b id="restartList"></b></span>
-    <button class="btn primary" id="restartBtn" type="button">Restart BURN-IN</button></div>
+    <button class="btn primary" id="restartBtn" type="button">Restart Ashvane</button></div>
   <div class="banner" id="updBanner"><span id="updText"></span><button class="btn primary" id="updBtn" type="button">Update now</button></div>
-  <div class="banner err" id="connBanner"><span>Lost contact with the BURN-IN engine. Retrying…</span></div>
+  <div class="banner err" id="connBanner"><span>Lost contact with the Ashvane engine. Retrying…</span></div>
 
 <main id="workspace" tabindex="-1">
   <!-- LIVE -->
@@ -886,19 +887,19 @@ nav button:hover .i3{transform:scale(1.08)}
       <div class="savebar" id="recBar" hidden><button class="btn primary" id="applyRecs" type="button">Apply selected</button><span class="msg" id="recMsg"></span></div>
     </div>
     <div class="panel">
-      <div class="phead"><h2>Updates</h2><span class="sub" id="updSub">BURN-IN</span>
+      <div class="phead"><h2>Updates</h2><span class="sub" id="updSub">Ashvane</span>
         <button class="btn" type="button" id="updCheck">Check for updates</button></div>
       <div id="updBox" class="small" style="padding:14px 20px">Not checked yet.</div>
     </div>
     <div class="panel">
-      <div class="phead"><h2>Storage</h2><span class="sub">Where BURN-IN keeps things. Moving a folder takes effect after a restart; files move with it.</span></div>
+      <div class="phead"><h2>Storage</h2><span class="sub">Where Ashvane keeps things. Moving a folder takes effect after a restart; files move with it.</span></div>
       <div id="storageBox"></div>
     </div>
   </section>
 
   <!-- STUDIO -->
   <section class="view" id="view-studio" role="tabpanel">
-    <div class="banner show" id="stKeep" hidden><span>Studio restyles a clip from its source cut. BURN-IN is deleting source cuts after rendering, so older clips can't be edited.</span>
+    <div class="banner show" id="stKeep" hidden><span>Studio restyles a clip from its source cut. Ashvane is deleting source cuts after rendering, so older clips can't be edited.</span>
       <button class="btn primary" type="button" id="stKeepBtn">Keep source cuts</button></div>
     <div class="studio">
       <div class="panel"><div class="phead"><h2>Clips</h2></div><div class="s-list" id="stList"></div></div>
@@ -1038,16 +1039,16 @@ const PAGES = {
   live: ["Live desk", "Watch the streams. Catch the moments worth keeping."],
   clips: ["Clips", "Everything it cut: ready to post, posted, and the ones the judge turned down."],
   growth: ["Growth", "How posts are doing, and what the scheduler is leaning toward because of it."],
-  system: ["System", "Tune BURN-IN to this PC and choose where its files live."],
+  system: ["System", "Tune Ashvane to this PC and choose where its files live."],
   studio: ["Studio", "Restyle any clip in seconds: pick a theme, tweak captions, trim, and apply."],
   settings: ["Settings", "Start with a section or search for what you need."],
-  setup: ["Setup", "A few things BURN-IN needs before it can run on its own."],
+  setup: ["Setup", "A few things Ashvane needs before it can run on its own."],
 };
 function show(view) {
   view = PAGES[view] ? view : "live";
   const pg = PAGES[view];
   $("#pageTitle").textContent = pg[0]; $("#pageSub").textContent = pg[1];
-  document.title = `${pg[0]} · BURN-IN`;
+  document.title = `${pg[0]} · Ashvane`;
   $$("nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === view)));
   $$("section.view").forEach(s => s.classList.toggle("active", s.id === "view-" + view));
   if (view === "live" && state) { renderMonitors(state); renderFlow(state); renderSamples(state); renderPosts(state); }
@@ -1210,7 +1211,7 @@ $("#pauseBtn").addEventListener("click", async () => {
 $("#restartBtn").addEventListener("click", async () => {
   $("#restartBtn").disabled = true;
   await api("/api/control/restart", {method: "POST"});
-  toast("Restarting BURN-IN…");
+  toast("Restarting Ashvane…");
 });
 $("#openClips").addEventListener("click", () => api("/api/control/open_clips", {method: "POST"}));
 
@@ -1346,7 +1347,7 @@ function oauthButtons() {
     ${o[p] ? "Reconnect" : "Connect"} ${p === "youtube" ? "YouTube" : "TikTok"}</button>`).join("")}
     <span class="small dim" style="align-self:center">Save the client keys first. The sign-in opens in your browser.</span></div>
     <div class="oauth" style="flex-direction:column;align-items:stretch">
-      <label class="small" for="tiktokPaste"><b>TikTok didn't come back to BURN-IN?</b> Paste the full address your browser landed on after approving:</label>
+      <label class="small" for="tiktokPaste"><b>TikTok didn't come back to Ashvane?</b> Paste the full address your browser landed on after approving:</label>
       <div class="row"><input type="text" id="tiktokPaste" placeholder="https://…/callback/?code=…&amp;state=…" spellcheck="false">
       <button class="btn" type="button" id="tiktokPasteBtn">Finish TikTok connect</button></div></div>`;
 }
@@ -1384,15 +1385,36 @@ function runFind() {
 }
 $("#snav").addEventListener("click", e => { const a = e.target.closest("a[data-sec]"); if (!a) return; e.preventDefault(); openSection(a.dataset.sec); });
 $("#sfind").addEventListener("input", runFind);
-const SUBGUIDE = {"posting.youtube": "Shorts go up as soon as they are rendered, inside your daily cap and posting hours. Uploads are marked 18+ by default: stream clips carry swearing and adult humour, and the rating keeps them off kids' feeds. Category 20 is Gaming. The title suffix is what makes YouTube treat a vertical video as a Short.", "posting.tiktok": "TikTok posts to your drafts or straight to the feed depending on the privacy picked here. Until TikTok audits an app it can only post privately, so start there. Keep captions short - TikTok truncates them early.", "posting.instagram": "Reels go through the Instagram Graph API, which needs a Business or Creator account linked to a Facebook Page and a token from developers.facebook.com. Instagram counts every upload against a rolling 24-hour limit, so keep the daily cap under it.", "posting.facebook": "Reels post to a Page you administer, not a personal profile, using the same Meta token as Instagram.", "posting.discord": "A webhook URL from your own server: Server Settings - Integrations - Webhooks. It needs no app review, so it is the easiest place to watch what BURN-IN is producing before pointing it at a public channel."};
-const GUIDE = {"start": "<b>1. Connect a source.</b> Twitch and/or Kick need free developer keys (Twitch → Client ID/secret from dev.twitch.tv; Kick → from kick.com/settings/developer). Paste them in their sections and save. <b>2. Check Setup.</b> The Setup tab shows what is still missing (ffmpeg, Ollama, AI models). Models download on their own the first time. <b>3. Choose what to watch.</b> Forced streamers are always watched; the rest are picked from the top categories. More streams = more clips but more load. <b>4. Connect where to post.</b> Accounts → Connect YouTube/TikTok, or paste Meta tokens. Turn each platform on under Posting. <b>5. Pick a look.</b> The Studio tab restyles clips; “Use for all new clips” saves it here. <b>6. Let it run.</b> Clips flow Live → judged → rendered → posted on your schedule. Click the status card any time to see what it's doing and why.", "app": "How the app behaves on Windows: start with Windows (runs quietly in the tray), what closing the window does, where your data lives, logging, and the auto-lock that protects your profile. Folder changes apply after a restart and your files move with them.", "dashboard": "<b>Phone remote.</b> Switch it on and BURN-IN also answers on your own network, so the phone app (or any browser) can run the desk. The Live tab then shows a <b>Phone remote</b> button with the exact address to type, like <b>192.168.0.12:8787</b> - that one comes from your router and can change when it reboots. For an address that never changes and works away from home too, install Tailscale on this PC and on the phone, sign both into the same account, and use the PC's Tailscale address (it starts with <b>100.</b>) with the same <b>:8787</b> port. Only private and Tailscale addresses are ever accepted and your profile password is still required, so nothing is exposed to the internet.<br><br>The rest of this section is the local panel itself: it listens on 127.0.0.1 always, plus your network only while the remote is on. Refresh interval sets how live the dashboard feels; the sound settings control the app's chimes.", "paths": "Where ffmpeg, ffprobe and Streamlink are. Leave empty to find them automatically; set a full path only if the Setup tab says one is missing.", "pets": "Your desktop companion. It lives on your desktop while the app runs (even closed to the tray), reacts to clips, posts and spikes with bubbles and sounds, and shows stats on hover. Turn it on or off instantly; drag it anywhere; double-click it to open the app. Pick a pet, its size, how lively it is, and which events it reacts to.", "twitch": "Twitch discovery. Needs a free Client ID + secret (dev.twitch.tv → Your Console → Register Application, any https redirect). <b>Capture slots</b> = streams watched at once. <b>Minimum viewers</b> skips small streams; <b>Fill empty slots</b> tops up with the biggest remaining ones. Forced streamers are always watched when live; Blocked streamers are never clipped (use this for takedown requests). Type lists one per line or comma-separated.", "kick": "Kick discovery, same as Twitch. Kick keys come from kick.com → Settings → Developer. If Kick's website blocks the chat lookup, that stream still clips from audio spikes.", "discovery": "How streams are chosen: every interval it takes forced streamers, forced categories, then the top categories × streamers per category, up to your capture slots. Unknown category names are warned about once — check the exact spelling on the site.", "capture": "Each watched stream records into a rolling buffer on disk so a moment can be cut after it happens. <b>Buffer</b> = how many seconds are kept. <b>Quality</b> tries each option left to right. Higher quality = sharper clips but more download bandwidth (≈6–8 Mbps per 1080p60 stream).", "chat": "Chat is read anonymously (no account). Twitch uses an IRC websocket; Kick uses its public chat socket. Join spacing keeps Twitch from rate-limiting you.", "detector": "Decides when something happened. It compares chat speed to that stream's normal speed (<b>z-score</b>): 3 means “three times more unusual than normal”. Keywords (like W, LMAO, CLIP IT) and audio loudness jumps also count. Raise the thresholds for fewer, bigger moments; lower them for more clips. Cooldown stops one moment from being cut twice.", "clip": "How long cuts are: seconds before and after the spike, and the min/max final length the AI may trim to. Rejected cuts are kept for a while so you can review or publish them anyway.", "backlog": "The safety valve. When too many clips wait for the AI (capacity × pause-at), capturing pauses until the queue drains to resume-at. If you see Failsafe often, watch fewer streams or raise the detector thresholds.", "ai": "The local AI that judges and writes. <b>Judge profile</b>: auto picks from your GPU — light (small model, stricter rules), balanced (one multimodal model sees, judges and writes — no GPU swapping; best for 10–24 GB cards) or strong (big separate judge, 24 GB+). <b>Min score</b> is the pass mark (0–10). Vision lets the AI look at frames from the clip. Missing models download on first start.", "whisper": "Speech-to-text for captions and the AI. large-v3-turbo on the GPU is fast and accurate; the app falls back to the CPU automatically if CUDA isn't available.", "copywriter": "Writes titles, descriptions, tags, hashtags, a first comment and the on-screen hook — separately for each platform. With <b>Watch the clip</b> on, it looks at frames (one at the exact spike) and reads chat's reaction so the copy is about what really happened. Edit each platform's style rules to change the voice.", "edit": "How clips are rendered: 1080×1920 vertical, captions with the spoken word highlighted, the hook box, punch-in zoom at the spike, a progress bar, loudness normalisation and your watermark. Layout facecam stacks the streamer's cam over the gameplay (found automatically); blur fits the whole stream over a blurred copy. Lower CRF = sharper, bigger files. The Studio tab is the easy way to change the look.", "brand": "Your channel name and handles. The watermark and the {brand} / {handle} placeholders in post templates come from here.", "studio": "Settings for the Studio tab: preview speed/quality and the font list offered there. Studio previews are quick drafts; Apply renders at full quality.", "accounts": "Where posts go. YouTube and TikTok connect with the buttons (sign in in your browser). Instagram and Facebook use tokens from developers.facebook.com (see the README for the click-by-click). Discord uses a webhook URL. Keys are encrypted on this PC.", "posting": "When and how posts go out: per-platform on/off, daily caps, minimum gap between posts, the posting-hours window, privacy, and the title/caption templates ({title} {streamer} {platform} {category} {hashtags} {brand} {handle}). Publish now in a clip's preview skips caps and windows for testing.", "safety": "Protects your channels. Slurs and derogatory terms are masked in titles, captions, hashtags and comments, masked in on-screen captions, bleeped in the audio, and clips where someone says one are skipped. Casual slang and everyday swearing are left alone unless you raise the level. Add your own words under Also block; exceptions under Always allow.", "analytics": "Learns what performs. After posts are measured (next-day and periodic checks), it steers the scheduler and the copywriter toward the streamers, categories and styles that get views — while still exploring so it doesn't get stuck on one thing.", "clip_import": "Optionally reposts the most popular Twitch clips from the streamers you watch, with your editing on top and a credit line to the original clipper.", "workers": "How much runs in parallel. <b>AI stage at once</b> should stay 1 on a single GPU. Render workers and transcribers can go up on strong PCs. System → Scan this PC recommends values.", "viewer": "The live viewer (click any monitor on the Live tab) plays exactly what the app captures, ~6 s behind live, with chat and the hype gauges.", "updates": "Automatic updates from GitHub Releases. Set the repo (owner/name) and the app checks on start; Update now downloads the new installer, updates in place and restarts. Your data is kept."};
+const SUBGUIDE = {"posting.youtube": "Shorts go up as soon as they are rendered, inside your daily cap and posting hours. Uploads are marked 18+ by default: stream clips carry swearing and adult humour, and the rating keeps them off kids' feeds. Category 20 is Gaming. The title suffix is what makes YouTube treat a vertical video as a Short.", "posting.tiktok": "TikTok posts to your drafts or straight to the feed depending on the privacy picked here. Until TikTok audits an app it can only post privately, so start there. Keep captions short - TikTok truncates them early.", "posting.instagram": "Reels go through the Instagram Graph API, which needs a Business or Creator account linked to a Facebook Page and a token from developers.facebook.com. Instagram counts every upload against a rolling 24-hour limit, so keep the daily cap under it.", "posting.facebook": "Reels post to a Page you administer, not a personal profile, using the same Meta token as Instagram.", "posting.discord": "A webhook URL from your own server: Server Settings - Integrations - Webhooks. It needs no app review, so it is the easiest place to watch what Ashvane is producing before pointing it at a public channel."};
+const GUIDE = {"start": "<b>1. Connect a source.</b> Twitch and/or Kick need free developer keys (Twitch → Client ID/secret from dev.twitch.tv; Kick → from kick.com/settings/developer). Paste them in their sections and save. <b>2. Check Setup.</b> The Setup tab shows what is still missing (ffmpeg, Ollama, AI models). Models download on their own the first time. <b>3. Choose what to watch.</b> Forced streamers are always watched; the rest are picked from the top categories. More streams = more clips but more load. <b>4. Connect where to post.</b> Accounts → Connect YouTube/TikTok, or paste Meta tokens. Turn each platform on under Posting. <b>5. Pick a look.</b> The Studio tab restyles clips; “Use for all new clips” saves it here. <b>6. Let it run.</b> Clips flow Live → judged → rendered → posted on your schedule. Click the status card any time to see what it's doing and why.", "app": "How the app behaves on Windows: start with Windows (runs quietly in the tray), what closing the window does, where your data lives, logging, and the auto-lock that protects your profile. Folder changes apply after a restart and your files move with them.", "dashboard": "<b>Connect your phone</b><ol class=\"steps\"><li>Turn on <b>Phone remote</b> below and press <b>Save</b>. Say yes when Ashvane asks to restart.</li><li>Press <b>Test connection</b>. It tries every way your phone can reach this PC and shows the address to use.</li><li>On the phone, open Ashvane, tap <b>Remote</b>, type that address, pick your profile and enter your password.</li></ol><b>Away from home too?</b> Install Tailscale (free) on this PC and on the phone and sign both into the same account. Test connection then shows a name ending in <b>.ts.net</b>: use that on the phone and it works anywhere.<br><br><span class=\"dim\">Only your own network and Tailscale are ever accepted, and your password is always required. The rest of this section is the desktop panel itself: refresh speed and app sounds.</span>", "paths": "Where ffmpeg, ffprobe and Streamlink are. Leave empty to find them automatically; set a full path only if the Setup tab says one is missing.", "pets": "Your desktop companion. It lives on your desktop while the app runs (even closed to the tray), reacts to clips, posts and spikes with bubbles and sounds, and shows stats on hover. Turn it on or off instantly; drag it anywhere; double-click it to open the app. Pick a pet, its size, how lively it is, and which events it reacts to.", "twitch": "Twitch discovery. Needs a free Client ID + secret (dev.twitch.tv → Your Console → Register Application, any https redirect). <b>Capture slots</b> = streams watched at once. <b>Minimum viewers</b> skips small streams; <b>Fill empty slots</b> tops up with the biggest remaining ones. Forced streamers are always watched when live; Blocked streamers are never clipped (use this for takedown requests). Type lists one per line or comma-separated.", "kick": "Kick discovery, same as Twitch. Kick keys come from kick.com → Settings → Developer. If Kick's website blocks the chat lookup, that stream still clips from audio spikes.", "discovery": "How streams are chosen: every interval it takes forced streamers, forced categories, then the top categories × streamers per category, up to your capture slots. Unknown category names are warned about once — check the exact spelling on the site.", "capture": "Each watched stream records into a rolling buffer on disk so a moment can be cut after it happens. <b>Buffer</b> = how many seconds are kept. <b>Quality</b> tries each option left to right. Higher quality = sharper clips but more download bandwidth (≈6–8 Mbps per 1080p60 stream).", "chat": "Chat is read anonymously (no account). Twitch uses an IRC websocket; Kick uses its public chat socket. Join spacing keeps Twitch from rate-limiting you.", "detector": "Decides when something happened. It compares chat speed to that stream's normal speed (<b>z-score</b>): 3 means “three times more unusual than normal”. Keywords (like W, LMAO, CLIP IT) and audio loudness jumps also count. Raise the thresholds for fewer, bigger moments; lower them for more clips. Cooldown stops one moment from being cut twice.", "clip": "How long cuts are: seconds before and after the spike, and the min/max final length the AI may trim to. Rejected cuts are kept for a while so you can review or publish them anyway.", "backlog": "The safety valve. When too many clips wait for the AI (capacity × pause-at), capturing pauses until the queue drains to resume-at. If you see Failsafe often, watch fewer streams or raise the detector thresholds.", "ai": "The local AI that judges and writes. <b>Judge profile</b>: auto picks from your GPU — light (small model, stricter rules), balanced (one multimodal model sees, judges and writes — no GPU swapping; best for 10–24 GB cards) or strong (big separate judge, 24 GB+). <b>Min score</b> is the pass mark (0–10). Vision lets the AI look at frames from the clip. Missing models download on first start.", "whisper": "Speech-to-text for captions and the AI. large-v3-turbo on the GPU is fast and accurate; the app falls back to the CPU automatically if CUDA isn't available.", "copywriter": "Writes titles, descriptions, tags, hashtags, a first comment and the on-screen hook — separately for each platform. With <b>Watch the clip</b> on, it looks at frames (one at the exact spike) and reads chat's reaction so the copy is about what really happened. Edit each platform's style rules to change the voice.", "edit": "How clips are rendered: 1080×1920 vertical, captions with the spoken word highlighted, the hook box, punch-in zoom at the spike, a progress bar, loudness normalisation and your watermark. Layout facecam stacks the streamer's cam over the gameplay (found automatically); blur fits the whole stream over a blurred copy. Lower CRF = sharper, bigger files. The Studio tab is the easy way to change the look.", "brand": "Your channel name and handles. The watermark and the {brand} / {handle} placeholders in post templates come from here.", "studio": "Settings for the Studio tab: preview speed/quality and the font list offered there. Studio previews are quick drafts; Apply renders at full quality.", "accounts": "Where posts go. YouTube and TikTok connect with the buttons (sign in in your browser). Instagram and Facebook use tokens from developers.facebook.com (see the README for the click-by-click). Discord uses a webhook URL. Keys are encrypted on this PC.", "posting": "When and how posts go out: per-platform on/off, daily caps, minimum gap between posts, the posting-hours window, privacy, and the title/caption templates ({title} {streamer} {platform} {category} {hashtags} {brand} {handle}). Publish now in a clip's preview skips caps and windows for testing.", "safety": "Protects your channels. Slurs and derogatory terms are masked in titles, captions, hashtags and comments, masked in on-screen captions, bleeped in the audio, and clips where someone says one are skipped. Casual slang and everyday swearing are left alone unless you raise the level. Add your own words under Also block; exceptions under Always allow.", "analytics": "Learns what performs. After posts are measured (next-day and periodic checks), it steers the scheduler and the copywriter toward the streamers, categories and styles that get views — while still exploring so it doesn't get stuck on one thing.", "clip_import": "Optionally reposts the most popular Twitch clips from the streamers you watch, with your editing on top and a credit line to the original clipper.", "workers": "How much runs in parallel. <b>AI stage at once</b> should stay 1 on a single GPU. Render workers and transcribers can go up on strong PCs. System → Scan this PC recommends values.", "viewer": "The live viewer (click any monitor on the Live tab) plays exactly what the app captures, ~6 s behind live, with chat and the hype gauges.", "updates": "Automatic updates from GitHub Releases. Set the repo (owner/name) and the app checks on start; Update now downloads the new installer, updates in place and restarts. Your data is kept."};
 /** The Dashboard section shows the address this PC is actually answering on right now. */
 function liveAddress(section) {
-  if (section !== "dashboard" || !state || !state.remote_url) return "";
-  const url = String(state.remote_url).replace(/^https?:\/\//, "").replace(/\/remote$/, "");
-  return `<br><br><b>Right now this PC answers at ${esc(url)}</b> - type that into BURN-IN Remote `
-    + "on the phone, or open it in any browser on the same network.";
+  if (section !== "dashboard") return "";
+  return `<div class="rtest"><button class="btn primary" type="button" id="remoteTestBtn">Test connection</button>
+    <div id="remoteTestOut" class="small"></div></div>`;
 }
+
+/* Test connection: the PC tries every address the phone could use and says which one to type. */
+async function remoteTest(out, btn) {
+  if (!out) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Testing…"; }
+  out.innerHTML = `<p class="dim">Trying your home Wi-Fi and Tailscale…</p>`;
+  try {
+    const r = await api("/api/remote/test", {method: "POST"});
+    const d = r.body || {};
+    const rows = (d.routes || []).map(x => `<li><span class="${x.ok ? "ok" : "bad"}">${x.ok ? "✓" : "✕"}</span>
+      <b>${esc(x.route)}</b> <code>${esc(x.type)}</code> <span class="dim">${esc(x.detail)}</span></li>`).join("");
+    out.innerHTML = `${rows ? `<ul class="rtest-list">${rows}</ul>` : ""}
+      <p class="${d.ok ? "rtest-good" : "rtest-bad"}"><b>${esc(d.advice || "No result.")}</b></p>`;
+  } catch (e) {
+    out.innerHTML = `<p class="rtest-bad">The test itself failed: ${esc(e.message || e)}</p>`;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = "Test connection"; }
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("#remoteTestBtn");
+  if (b) remoteTest(document.getElementById(b.dataset.out || "remoteTestOut"), b);
+});
 function renderForm() {
   const top = schema.properties;
   const placed = new Set(SETTING_GROUPS.flatMap(g => g[1]));
@@ -1410,7 +1432,9 @@ function phoneChip(state) {
   if (url) b.onclick = () => ask({
     title: "Phone remote",
     body: `<p>On a phone on the same Wi-Fi, open:</p><p style="font:600 17px/1.4 var(--mono);word-break:break-all">${esc(url)}</p>
-      <p class="dim small">Sign in with your profile password. In Safari, tap Share then <b>Add to Home Screen</b> and it behaves like an app.</p>`,
+      <p class="dim small">Sign in with your profile password. In Safari, tap Share then <b>Add to Home Screen</b> and it behaves like an app.</p>
+      <div class="rtest"><button class="btn" type="button" id="remoteTestBtn" data-out="remoteTestDlg">Test connection</button>
+      <div id="remoteTestDlg" class="small"></div></div>`,
     ok: "Copy address", cancel: "Close"}).then(yes => { if (yes) navigator.clipboard?.writeText(url); });
 }
   $("#sections").innerHTML = Object.entries(top).map(([k, raw]) => {
@@ -1610,7 +1634,7 @@ $("#checks").addEventListener("click", e => { const b = e.target.closest("[data-
 $("#recheck").addEventListener("click", () => loadSetup());
 
 
-/* ================= BURN-IN additions ================= */
+/* ================= Ashvane additions ================= */
 const _api0 = api;
 api = async function(path, opts = {}) {
   const r = await _api0(path, opts);
@@ -1818,10 +1842,10 @@ $("#storageBox").addEventListener("click", async e => {
   let dest = "";
   const pick = await api("/api/storage/pick", {method: "POST"});
   if (pick.ok && pick.body.ok) dest = pick.body.path;
-  else dest = await ask({title: "Move folder", body: `Full path of the new folder for ${b.dataset.move}. Files move on the next restart.`, ok: "Move", input: {placeholder: "D:\\BURN-IN\\" + b.dataset.move}}) || "";
+  else dest = await ask({title: "Move folder", body: `Full path of the new folder for ${b.dataset.move}. Files move on the next restart.`, ok: "Move", input: {placeholder: "D:\\Ashvane\\" + b.dataset.move}}) || "";
   if (!dest) return;
   const r = await api("/api/storage/move", {method: "POST", json: {kind: b.dataset.move, dest}});
-  toast(r.ok ? "Saved — restart BURN-IN to move the files" : "Move failed"); loadStorage(); poll();
+  toast(r.ok ? "Saved — restart Ashvane to move the files" : "Move failed"); loadStorage(); poll();
 });
 const _show = show;
 show = function(view) { _show(view); if (view === "clips") loadClips(); if (view === "growth") loadGrowth(); if (view === "system") loadStorage(); if (view === "studio") loadStudio(); };
@@ -1830,7 +1854,7 @@ setInterval(() => { if ($("#view-clips").classList.contains("active")) loadClips
 
 
 
-/* ---------------- live viewer: what BURN-IN sees, near-live from its own capture buffer ---------------- */
+/* ---------------- live viewer: what Ashvane sees, near-live from its own capture buffer ---------------- */
 const W = {key: null, timer: null, queue: [], seen: new Set(), chat: [], official: false, info: null, playing: null,
            ms: null, sb: null, pending: [], fetching: false, mse: false, started: false, lastName: null};
 // One continuous stream instead of two <video> elements taking turns. Each buffer segment is
@@ -1840,7 +1864,9 @@ const W = {key: null, timer: null, queue: [], seen: new Set(), chat: [], officia
 const WMSE_TYPES = ['video/mp4; codecs="avc1.640029,mp4a.40.2"', 'video/mp4; codecs="avc1.64001f,mp4a.40.2"',
                     'video/mp4; codecs="avc1.4d401f,mp4a.40.2"', 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"'];
 const wMseType = () => (window.MediaSource ? WMSE_TYPES.find(t => MediaSource.isTypeSupported(t)) : null);
-const wMaxLag = () => (state && state.viewer_max_lag_s) || 12;
+const wMaxLag = () => (state && state.viewer_max_lag_s) || 25;
+const wTarget = () => (state && state.viewer_target_lag_s) || 10;
+const RATE_FAST = 1.06, RATE_SLOW = 0.94, RATE_BAND_S = 2;   // an unnoticeable nudge either way
 const wKeep = () => (state && state.viewer_keep_s) || 30;
 const WSEAM_MAX_S = 0.5;   // a gap bigger than this is missing video, not a seam
 const WSEAM_NUDGE_S = 0.001;
@@ -1848,7 +1874,7 @@ const WEDGE_S = 0.4;        // land just inside the newest video, not exactly on
 const WQUEUE_MAX = 3;       // more than this waiting means we are behind: skip to the newest
 const wPlayers = () => [$("#wVideo"), $("#wVideo2")];
 function wStop() {
-  clearTimeout(W.timer); W.timer = null; W.key = null; W.queue = []; W.seen.clear(); W.chat = []; W.playing = null;
+  clearTimeout(W.timer); W.timer = null; W.key = null; W.queue = []; W.seen.clear(); W.chat = []; W.playing = null; W.settled = false;
   W.pending = []; W.fetching = false; W.mse = false; W.started = false; W.sb = null;
   if (W.ms && W.ms.readyState === "open") { try { W.ms.endOfStream(); } catch {} }
   W.ms = null;
@@ -1872,7 +1898,7 @@ async function wTick() {
   const d = W.info = r.body;
   $("#wPlat").className = `plat ${d.platform}`; $("#wPlat").textContent = d.platform === "twitch" ? "TW" : "KICK";
   $("#wName").textContent = d.name; $("#wMeta").textContent = `${d.category} · ${Number(d.viewers).toLocaleString()} viewers`;
-  $("#wMode").textContent = W.official ? "What BURN-IN sees" : (d.platform === "kick" ? "Official player" : "Open on Twitch");
+  $("#wMode").textContent = W.official ? "What Ashvane sees" : (d.platform === "kick" ? "Official player" : "Open on Twitch");
   const fresh = d.segments.filter(sg => !W.seen.has(sg.name));
   fresh.forEach(sg => { W.seen.add(sg.name); W.queue.push(sg.name); });
   if (!W.started && W.queue.length) { W.queue = W.queue.slice(-1); W.started = true; }  // open at the live edge
@@ -1951,11 +1977,23 @@ function wSeam() {
     if (ahead > 0 && ahead <= WSEAM_MAX_S) { v.currentTime = start + WSEAM_NUDGE_S; return; }
   }
 }
-function wCatchUp() {                        // a stall must not leave us playing old video forever
+function wCatchUp() {
+  // Hold a steady distance behind the newest video. Right at the edge the player would stop
+  // every segment to wait for the next one, so it sits a little back and keeps that distance by
+  // playing a few percent faster or slower. It only jumps when a stall leaves it far behind, and
+  // then lands at the same distance, not on the last frame, so it does not stall straight away.
   const sb = W.sb, v = $("#wVideo");
   if (!sb || !sb.buffered.length) return;
-  const live = sb.buffered.end(sb.buffered.length - 1);
-  if (live - v.currentTime > wMaxLag()) v.currentTime = Math.max(0, live - WEDGE_S);
+  const live = sb.buffered.end(sb.buffered.length - 1), lag = live - v.currentTime, target = wTarget();
+  if (!W.settled || lag > wMaxLag()) {
+    if (live > target || lag > wMaxLag()) {
+      v.currentTime = Math.max(sb.buffered.start(0), live - target);
+      W.settled = true;
+    }
+    v.playbackRate = 1;
+    return;
+  }
+  v.playbackRate = lag > target + RATE_BAND_S ? RATE_FAST : lag < target - RATE_BAND_S ? RATE_SLOW : 1;
 }
 function wFallback() {
   // MediaSource would not take this stream. The plain <video> path is more forgiving, so drop
@@ -1999,7 +2037,7 @@ function wHud(d) {
     + g("Chat speed", s.rate, Math.max(0.1, s.baseline * 2), "", `${s.rate.toFixed(1)}/s`)
     + g("Keywords", s.kw_score, Math.max(0.1, t.keyword), "", s.kw_score.toFixed(1))
     + g("Audio (z)", s.audio_z, t.audio_z, "", s.audio_z.toFixed(1))
-    + `<span class="lag">BURN-IN's view · ~${Math.round(lag + 3)}s behind live</span>`;
+    + `<span class="lag">Ashvane's view · ~${Math.round(lag + 3)}s behind live</span>`;
 }
 function wChat(lines) {
   const box = $("#wChat"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
@@ -2028,7 +2066,7 @@ $("#wMode").addEventListener("click", () => {
   wPlayers().forEach(v => { v.hidden = W.official; if (W.official) v.pause(); });
   if (W.official) $("#wFrame").src = `https://player.kick.com/${encodeURIComponent(d.login)}?autoplay=true`;
   else { $("#wFrame").src = "about:blank"; W.playing = null; wNext(); }
-  $("#wMode").textContent = W.official ? "What BURN-IN sees" : "Official player";
+  $("#wMode").textContent = W.official ? "What Ashvane sees" : "Official player";
 });
 $("#wClips").addEventListener("click", e => { const b = e.target.closest("[data-clip]"); if (b) { wClose(); openPreview(b.dataset.clip); } });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#watch").classList.contains("show") && !document.fullscreenElement) wClose(); });
@@ -2095,15 +2133,15 @@ async function checkUpdates(quiet) {
     ? `<b>Version ${esc(UPD.latest)} is ready</b>${UPD.size ? ` (${fmtBytes(UPD.size)})` : ""}.<pre style="white-space:pre-wrap;margin:10px 0">${esc(UPD.notes || "")}</pre><button class="btn primary" type="button" data-update>Update now</button>`
     : esc(UPD.error || "You're on the latest version.");
   $("#updBanner").classList.toggle("show", !!UPD.available);
-  if (UPD.available) $("#updText").innerHTML = `<b>BURN-IN ${esc(UPD.latest)}</b> is out. Your settings, keys and clips are kept.`;
+  if (UPD.available) $("#updText").innerHTML = `<b>Ashvane ${esc(UPD.latest)}</b> is out. Your settings, keys and clips are kept.`;
   else if (!quiet) toast(UPD.error || "You're up to date");
 }
 async function installUpdate(btn) {
-  if (!await ask({title: "Update now?", body: `BURN-IN downloads version ${UPD.latest}, closes, updates itself and opens again. Nothing you've set up is lost.`, ok: "Update"})) return;
+  if (!await ask({title: "Update now?", body: `Ashvane downloads version ${UPD.latest}, closes, updates itself and opens again. Nothing you've set up is lost.`, ok: "Update"})) return;
   btn.disabled = true; btn.classList.add("busy"); toast("Downloading the update…");
   const r = await api("/api/update/install", {method: "POST"});
   btn.disabled = false; btn.classList.remove("busy");
-  toast(r.ok ? "Installing the update. BURN-IN will restart in a moment." : (r.body && r.body.error) || "Update failed");
+  toast(r.ok ? "Installing the update. Ashvane will restart in a moment." : (r.body && r.body.error) || "Update failed");
 }
 $("#updCheck").addEventListener("click", () => checkUpdates(false));
 $("#updBtn").addEventListener("click", e => installUpdate(e.currentTarget));

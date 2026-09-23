@@ -1,5 +1,5 @@
 @echo off
-rem Lets the BURN-IN phone app reach this PC.
+rem Lets the Ashvane phone app reach this PC.
 rem
 rem Windows Firewall silently drops incoming connections to the dashboard, so the phone can see
 rem nothing even when everything else is right. This adds one rule for port 8787 on private
@@ -9,7 +9,7 @@ rem The installer runs it with /quiet, which skips the closing prompt: there wou
 rem to press a key in, so it would wait for a keypress that never comes.
 setlocal
 set PORT=8787
-set RULE=BURN-IN phone remote
+set RULE=Ashvane phone remote
 set QUIET=%1
 
 net session >nul 2>&1
@@ -20,16 +20,18 @@ if errorlevel 1 (
 )
 
 netsh advfirewall firewall delete rule name="%RULE%" >nul 2>&1
+rem the same rule under the app's old name
+netsh advfirewall firewall delete rule name="BURN-IN phone remote" >nul 2>&1
 netsh advfirewall firewall add rule name="%RULE%" dir=in action=allow protocol=TCP ^
   localport=%PORT% profile=private,domain ^
-  description="Lets the BURN-IN phone app and browsers on your own network reach the dashboard."
+  description="Lets the Ashvane phone app and browsers on your own network reach the dashboard."
 if errorlevel 1 (
   echo.
   echo Could not add the rule. Run this file as administrator.
 ) else (
   echo.
-  echo Done. Your phone can now reach BURN-IN on port %PORT% over your own network.
-  echo In BURN-IN: Settings - Dashboard - Phone remote, then use the address it shows.
+  echo Done. Your phone can now reach Ashvane on port %PORT% over your own network.
+  echo In Ashvane: Settings - Dashboard - Phone remote, then use the address it shows.
 )
 echo.
 if /i not "%QUIET%"=="/quiet" pause

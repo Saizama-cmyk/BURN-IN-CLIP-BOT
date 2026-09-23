@@ -1,5 +1,5 @@
 @echo off
-rem Build dist\BurnIn\BurnIn.exe (PyInstaller one-folder, windowed).
+rem Build dist\Ashvane\Ashvane.exe (PyInstaller one-folder, windowed).
 setlocal
 cd /d "%~dp0"
 set PY=.venv\Scripts\python.exe
@@ -22,7 +22,7 @@ if exist "%CD%\installer\version_info.txt" set VERSIONFILE=--version-file "%CD%\
 
 echo [2/3] Running PyInstaller...
 "%PY%" -m PyInstaller --noconfirm --clean --onedir --windowed ^
-  --name BurnIn --icon "%CD%\assets\clipbot.ico" %VERSIONFILE% ^
+  --name Ashvane --icon "%CD%\assets\clipbot.ico" %VERSIONFILE% ^
   --distpath dist --workpath build --specpath build ^
   --paths "%CD%" ^
   --add-data "%CD%\clipbot\dashboard\static;clipbot\dashboard\static" ^
@@ -34,8 +34,8 @@ echo [2/3] Running PyInstaller...
   clipbot\__main__.py || goto :fail
 
 echo [3/3] Checking output...
-if not exist dist\BurnIn\BurnIn.exe goto :fail
-echo BUILD OK: dist\BurnIn\BurnIn.exe
+if not exist dist\Ashvane\Ashvane.exe goto :fail
+echo BUILD OK: dist\Ashvane\Ashvane.exe
 exit /b 0
 
 :fail

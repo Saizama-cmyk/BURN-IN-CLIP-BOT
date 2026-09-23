@@ -1,7 +1,7 @@
 """The Windows desktop shell: native window (pywebview / WebView2), tray icon (pystray),
 single-instance lock, and restart/quit handling.
 
-Threads: pywebview owns the main thread; the BURN-IN engine (asyncio loop with the pipeline
+Threads: pywebview owns the main thread; the Ashvane engine (asyncio loop with the pipeline
 and the dashboard server) runs on a worker thread; pystray runs detached on its own thread.
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ from .util import kill_all_sync
 
 logger = logging.getLogger("clipbot.desktop")
 
-MUTEX_NAME = "Local\\ClipBot.SingleInstance"
+MUTEX_NAME = "Local\\Ashvane.SingleInstance"
 ERROR_ALREADY_EXISTS = 183
 DETACHED_PROCESS = 0x00000008
 CREATE_NEW_PROCESS_GROUP = 0x00000200
@@ -60,7 +60,7 @@ def focus_existing(settings: Settings) -> bool:
                        timeout=settings.discovery.http_timeout_s)
         return r.status_code == 200
     except httpx.HTTPError as exc:
-        logger.warning("another BURN-IN is running but did not answer: %s", exc)
+        logger.warning("another Ashvane is running but did not answer: %s", exc)
         return False
 
 
@@ -90,7 +90,7 @@ def relaunch(detached: bool) -> None:
             return
         except OSError as exc:
             logger.debug("relaunch with flags %#x failed: %s", flags | extra, exc)
-    logger.error("could not relaunch BURN-IN; start it again manually")
+    logger.error("could not relaunch Ashvane; start it again manually")
 
 
 # --------------------------------------------------------------------------- desktop pet
@@ -322,7 +322,7 @@ class PetBridge:
 
 
 # --------------------------------------------------------------------------- identity
-APP_USER_MODEL_ID = "BurnIn.App"         # taskbar grouping + icon, even when run from python
+APP_USER_MODEL_ID = "Ashvane.App"         # taskbar grouping + icon, even when run from python
 WM_SETICON = 0x0080
 ICON_SMALL, ICON_BIG = 0, 1
 IMAGE_ICON = 1
@@ -331,7 +331,7 @@ ICON_SIZES = ((ICON_SMALL, 16), (ICON_BIG, 32))
 
 
 def claim_app_identity() -> None:
-    """Tell Windows this process is BURN-IN (not python.exe) for the taskbar."""
+    """Tell Windows this process is Ashvane (not python.exe) for the taskbar."""
     if os.name != "nt":
         return
     try:
@@ -341,7 +341,7 @@ def claim_app_identity() -> None:
 
 
 def set_window_icon(window) -> None:
-    """Give a pywebview window the BURN-IN icon (title bar, taskbar, Alt+Tab)."""
+    """Give a pywebview window the Ashvane icon (title bar, taskbar, Alt+Tab)."""
     ico = resource_path("assets", "clipbot.ico")
     if os.name != "nt" or window is None or not ico.exists():
         return
@@ -399,7 +399,7 @@ class Desktop:
             asyncio.run(self.app.run())
         except Exception:  # the engine thread must never die silently
             logger.exception("engine crashed")
-            self.app.error = self.app.error or "the BURN-IN engine crashed (see log)"
+            self.app.error = self.app.error or "the Ashvane engine crashed (see log)"
         finally:
             self.app.ready.set()
             self.app.stopped.set()
@@ -426,7 +426,7 @@ class Desktop:
             return
         area = work_area()
         self.pet = webview.create_window(
-            "BURN-IN pet", f"{self.app.url.rstrip('/')}/pet?k={self.app.pet_token}",
+            "Ashvane pet", f"{self.app.url.rstrip('/')}/pet?k={self.app.pet_token}",
             width=area["w"], height=area["h"], x=area["x"], y=area["y"],
             frameless=True, transparent=True, on_top=p.always_on_top, resizable=False,
             focus=False, shadow=False, js_api=PetBridge(self))
@@ -542,7 +542,7 @@ class Desktop:
 
         item = pystray.MenuItem
         menu = pystray.Menu(
-            item("Open BURN-IN", lambda *_: self.show_window(), default=True),
+            item("Open Ashvane", lambda *_: self.show_window(), default=True),
             item(lambda _i: status_line(self.app), None, enabled=False),
             item(lambda _i: "Resume capture" if self.app.pipeline.manual_paused else "Pause capture",
                  self._toggle_pause),
@@ -613,7 +613,7 @@ class Desktop:
         self._engine.start()
         self.app.ready.wait()
         if self.app.error and not self.app.pipeline.running:
-            message_box(f"BURN-IN could not start:\n\n{self.app.error}")
+            message_box(f"Ashvane could not start:\n\n{self.app.error}")
             self.quit()
             return 1
         self._build_tray()

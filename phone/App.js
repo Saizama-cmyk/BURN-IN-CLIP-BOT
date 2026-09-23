@@ -1,7 +1,7 @@
 /**
- * BURN-IN Remote - the clip desk, on a phone.
+ * Ashvane - the clip desk, on a phone.
  *
- * Talks to the BURN-IN app running on your PC over your own Wi-Fi: it asks for the session
+ * Talks to the Ashvane app running on your PC over your own Wi-Fi: it asks for the session
  * token once (your profile password), keeps it in the iOS keychain, and sends it as a bearer
  * header on every call. Nothing is stored anywhere else and nothing leaves your network.
  */
@@ -32,11 +32,11 @@ const C = {
   ember: "#FF8A3D", pass: "#6FD39A", reject: "#E8605F", chrome: "#DDE1E7",
 };
 const HEAD = { fontWeight: "700", letterSpacing: 1.6, textTransform: "uppercase" };
-const KEY_HOST = "burnin.host", KEY_TOKEN = "burnin.token";
+const KEY_HOST = "ashvane.host", KEY_TOKEN = "ashvane.token";
 const POLL_MS = 2500, TIMEOUT_MS = 6000, CHAT_TIMEOUT_MS = 180000;
 const CLIP_LIMIT = 30, MON_LIMIT = 15, DEFAULT_PORT = 8787;
-const RELEASE_API = "https://api.github.com/repos/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tags/phone-latest";
-const RELEASE_PAGE = "https://github.com/Saizama-cmyk/BURN-IN-CLIP-BOT/releases/tag/phone-latest";
+const RELEASE_API = "https://api.github.com/repos/Saizama-cmyk/Ashvane/releases/tags/phone-latest";
+const RELEASE_PAGE = "https://github.com/Saizama-cmyk/Ashvane/releases/tag/phone-latest";
 
 /**
  * Turns whatever was typed into a base URL.
@@ -209,7 +209,7 @@ function SignIn({ onDone }) {
 
   const go = async () => {
     const clean = baseUrl(host);
-    if (!clean) return setError("Type the address shown in BURN-IN on your PC.");
+    if (!clean) return setError("Type the address shown in Ashvane on your PC.");
     setBusy(true); setError("");
     try {
       const r = await call(clean, "/api/auth/login", {
@@ -223,7 +223,7 @@ function SignIn({ onDone }) {
         onDone(clean, r.data.token);
       }
     } catch (e) {
-      setError(`No answer from ${clean.replace(/^https?:\/\//, "")}. Check: BURN-IN is running, `
+      setError(`No answer from ${clean.replace(/^https?:\/\//, "")}. Check: Ashvane is running, `
         + "Settings - Dashboard - Phone remote is on, and this phone is on the same Wi-Fi "
         + "(or both are signed into Tailscale).");
     }
@@ -233,7 +233,7 @@ function SignIn({ onDone }) {
   return (
     <ScrollView contentContainerStyle={s.signWrap} keyboardShouldPersistTaps="handled">
       <Image source={require("./assets/icon.png")} style={s.signMark} />
-      <Text style={s.signTitle}>Burn-in</Text>
+      <Text style={s.signTitle}>Ashvane</Text>
       <Text style={s.signSub}>Your clips. Your PC. Your workspace.</Text>
       <Plate style={{ width: "100%", marginTop: 22 }}>
         <Text style={s.label}>PC address</Text>
@@ -774,7 +774,7 @@ function Assistant({ host, token, onError, mode = "chat" }) {
               <Text style={s.help}>
                 {onPhone && model
                   ? "Private and offline, but a phone-sized model."
-                  : "Uses the PC's much larger model. Needs BURN-IN running."}
+                  : "Uses the PC's much larger model. Needs Ashvane running."}
               </Text>
             )}
           </Plate>
@@ -914,7 +914,7 @@ export default function App() {
         <StatusBar barStyle="light-content" />
         <View style={s.header}>
           <Image source={require("./assets/icon.png")} style={s.headerMark} />
-          <Text style={s.headerTitle}>Burn-in</Text>
+          <Text style={s.headerTitle}>Ashvane</Text>
           <View style={{ flex: 1 }} />
           {linked && <Pressable onPress={signOut} hitSlop={10}><Text style={s.label}>Sign out</Text></Pressable>}
         </View>
@@ -936,7 +936,7 @@ export default function App() {
         )}
         {linked && offline && (
           <View style={s.offline}>
-            <Text style={s.offlineText}>Cannot reach the PC — same Wi-Fi, BURN-IN running?</Text>
+            <Text style={s.offlineText}>Cannot reach the PC — same Wi-Fi, Ashvane running?</Text>
           </View>
         )}
 

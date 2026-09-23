@@ -1,10 +1,10 @@
-# Privacy: BURN-IN
+# Privacy: Ashvane
 
-**Everything stays on your computer.** There is no account with BURN-IN, no telemetry, no
+**Everything stays on your computer.** There is no account with Ashvane, no telemetry, no
 analytics, no ads and no tracking.
 
 - **Your profile password** is never stored. Only a salted PBKDF2-SHA256 hash (600,000
-  rounds) is kept, in your Windows user folder. BURN-IN never sees it.
+  rounds) is kept, in your Windows user folder. Ashvane never sees it.
 - **API keys and tokens** you enter are encrypted with Windows DPAPI, so only your Windows
   account on this PC can read them.
 - **Clips, transcripts, logs and settings** are stored locally in `%LOCALAPPDATA%\ClipBot`.

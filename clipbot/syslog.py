@@ -1,5 +1,5 @@
 """The System panel behind the status card: what the status means, recent events, issues and
-analytics, built from BURN-IN's own log file and database (pure functions, unit-tested)."""
+analytics, built from Ashvane's own log file and database (pure functions, unit-tested)."""
 from __future__ import annotations
 
 import re
@@ -65,13 +65,13 @@ def explain(snap: dict, settings: Settings) -> dict:
         return {"title": "Failsafe: catching up",
                 "why": f"{b.get('in_flight')} clips are waiting to be processed (capacity "
                        f"{b.get('capacity')}, {pct}% full). At {round(b.get('pause_at', 0) * 100)}% "
-                       f"BURN-IN stops capturing new streams so your PC isn't overwhelmed, and "
+                       f"Ashvane stops capturing new streams so your PC isn't overwhelmed, and "
                        f"starts again at {round(b.get('resume_at', 0) * 100)}%.",
                 "tips": ["Keep AI → One model for everything on, so Ollama never swaps models.",
                          "Watch fewer streams (Twitch/Kick → Capture slots) or raise Detector → "
                          "Chat z threshold so fewer moments get cut.",
                          "Use the GPU encoder (Editor → Encoder: h264_nvenc) to render faster.",
-                         "Close other GPU apps (games, ComfyUI) while BURN-IN runs."]}
+                         "Close other GPU apps (games, ComfyUI) while Ashvane runs."]}
     if status == "paused":
         return {"title": "Paused", "why": "You paused capture. Clips already cut keep processing.",
                 "tips": ["Press Resume capture to start watching streams again."]}

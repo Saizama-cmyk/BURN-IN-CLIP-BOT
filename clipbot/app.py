@@ -1,4 +1,4 @@
-"""The BURN-IN runtime: settings + pipeline + dashboard server in one asyncio loop.
+"""The Ashvane runtime: settings + pipeline + dashboard server in one asyncio loop.
 
 Used by every entry point (console dev mode, desktop window, headless exe). The desktop shell
 runs ``ClipBotApp.run()`` on a background thread and calls ``request_quit()`` from the tray.
@@ -131,7 +131,7 @@ class ClipBotApp:
             if self.dashboard:
                 if not port_free(ANY_HOST if d.remote else d.host, d.port):
                     self.error = (f"port {d.port} on {d.host} is already in use — another program "
-                                  f"(or BURN-IN) is running there. Change Settings → Dashboard → Port.")
+                                  f"(or Ashvane) is running there. Change Settings → Dashboard → Port.")
                     logger.error(self.error)
                     return
                 from .dashboard.server import create_app
@@ -188,8 +188,8 @@ class ClipBotApp:
             have = get_autostart()
             if want and have != launch_command():
                 set_autostart(True)
-            elif not want and have is not None:
-                set_autostart(False)
+            elif not want:
+                set_autostart(False)      # idempotent; also clears an entry from before the rename
         except OSError as exc:
             logger.warning("could not update the Run key: %s", exc)
 

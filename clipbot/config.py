@@ -1,11 +1,11 @@
 """Settings model, persistence, paths, and OAuth token storage.
 
-Every tunable value in BURN-IN lives here. The dashboard's Settings tab is generated from
+Every tunable value in Ashvane lives here. The dashboard's Settings tab is generated from
 ``Settings.model_json_schema()``, so a field added to any section below appears in the UI
 automatically with its ``title`` as the label and its ``description`` as the help line.
 
 Field metadata (``json_schema_extra``):
-  * ``restart``: the change only takes effect after "Restart BURN-IN".
+  * ``restart``: the change only takes effect after "Restart Ashvane".
   * ``secret``:  masked in GET /api/settings, never exported unless asked, masked values
                  sent back by the UI are ignored.
   * ``widget``:  UI hint: textarea | color | path | ollama_models | map | lines | password.
@@ -34,12 +34,14 @@ from . import secure
 logger = logging.getLogger("clipbot.config")
 
 # Brand: change COMPANY / PRODUCT here to rebrand everything user-facing.
-COMPANY = "BURN-IN"
-PRODUCT = "BURN-IN"
+COMPANY = "Ashvane"
+PRODUCT = "Ashvane"
 APP_NAME = PRODUCT                           # window/tray/dialog titles
 FULL_NAME = PRODUCT
-DATA_DIR_NAME = "ClipBot"                    # legacy folder name: keeps existing installs' data
-RUN_VALUE_NAME = "ClipBot"                   # legacy HKCU Run value (one autostart entry)
+DATA_DIR_NAME = "Ashvane"                    # %LOCALAPPDATA%\Ashvane
+LEGACY_DATA_DIRS = ("ClipBot",)              # older installs' folder, moved on first start
+RUN_VALUE_NAME = "Ashvane"                   # HKCU Run value (one autostart entry)
+LEGACY_RUN_VALUES = ("ClipBot",)             # removed so an old entry can't start a second copy
 MASK = "••••••••"
 AUTO_LANGUAGE = "auto"   # whisper.language value meaning "detect"
 
@@ -61,13 +63,77 @@ def resource_path(*parts: str) -> Path:
 
 
 def root_dir() -> Path:
-    """BURN-IN's top folder: profiles.json and the first profile's data live here.
+    """Ashvane's top folder: profiles.json and the first profile's data live here.
     ``CLIPBOT_HOME`` overrides (tests, portable use)."""
     env = os.environ.get("CLIPBOT_HOME")
     if env:
         return Path(env)
-    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
-    return Path(base) / DATA_DIR_NAME
+    home = _local_base() / DATA_DIR_NAME
+    if not home.exists():          # an older install whose folder could not be moved yet
+        home = next((_local_base() / n for n in LEGACY_DATA_DIRS if (_local_base() / n).is_dir()), home)
+    return home
+
+
+def _local_base() -> Path:
+    return Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local"))
+
+
+def migrate_data_dir() -> Path | None:
+    """Move an older install's data folder to the current name, once, before anything opens it.
+
+    The folder is renamed in place (same drive, so it is instant and nothing is copied), then
+    every absolute path inside it that still points at the old folder is rewritten: the clip
+    database stores the full path of each clip's files. Returns the new folder when a move
+    happened. If the move fails (a file is held open), the old folder is simply used as-is."""
+    if os.environ.get("CLIPBOT_HOME"):
+        return None
+    new = _local_base() / DATA_DIR_NAME
+    if new.exists():
+        return None
+    old = next((_local_base() / n for n in LEGACY_DATA_DIRS if (_local_base() / n).is_dir()), None)
+    if old is None:
+        return None
+    try:
+        old.rename(new)
+    except OSError as exc:
+        logger.warning("could not move %s to %s (%s); still using the old folder", old, new, exc)
+        return None
+    _rewrite_paths(new, str(old), str(new))
+    return new
+
+
+def _rewrite_paths(folder: Path, old: str, new: str) -> None:
+    """Point stored absolute paths at the renamed folder: in JSON files and the clip database."""
+    forms = [(old, new), (json.dumps(old)[1:-1], json.dumps(new)[1:-1]),
+             (old.replace("\\", "/"), new.replace("\\", "/"))]
+
+    def fix(text: str) -> str:
+        for a, b in forms:
+            text = text.replace(a, b)
+        return text
+
+    for path in folder.rglob("*.json"):
+        try:
+            text = path.read_text(encoding="utf-8")
+            if any(a in text for a, _ in forms):
+                path.write_text(fix(text), encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            logger.warning("could not update paths in %s: %s", path, exc)
+    import sqlite3
+    for db in folder.rglob("*.db"):
+        try:
+            con = sqlite3.connect(db)
+            with con:
+                for (table,) in con.execute("select name from sqlite_master where type='table'").fetchall():
+                    cols = [r[1] for r in con.execute(f'pragma table_info("{table}")')
+                            if (r[2] or "").upper() in ("TEXT", "")]
+                    for col in cols:
+                        for a, b in forms:
+                            con.execute(f'update "{table}" set "{col}" = replace("{col}", ?, ?) '
+                                        f'where instr("{col}", ?) > 0', (a, b, a))
+            con.close()
+        except sqlite3.Error as exc:
+            logger.warning("could not update paths in %s: %s", db, exc)
 
 
 def profiles_path() -> Path:
@@ -107,7 +173,7 @@ def settings_path() -> Path:
 def F(default: Any = ..., title: str = "", description: str = "", *, restart: bool = False,
       secret: bool = False, widget: str | None = None, default_factory: Any = None,
       **constraints: Any) -> Any:
-    """Field with a UI label, help text and BURN-IN metadata."""
+    """Field with a UI label, help text and Ashvane metadata."""
     extra: dict[str, Any] = {}
     if restart:
         extra["restart"] = True
@@ -128,16 +194,16 @@ class Section(BaseModel):
 
 # --------------------------------------------------------------------------- sections
 class AppCfg(Section):
-    """How BURN-IN runs as a Windows app and where it keeps its files."""
+    """How Ashvane runs as a Windows app and where it keeps its files."""
     start_with_windows: bool = F(False, "Start with Windows",
-                                 "Launch BURN-IN when you sign in (adds/removes the HKCU Run key).")
+                                 "Launch Ashvane when you sign in (adds/removes the HKCU Run key).")
     start_minimized: bool = F(False, "Start minimized to tray",
                               "Open straight into the tray icon without showing the window.")
     autostart_silent: bool = F(True, "Run silently at sign-in",
-                               "When Windows starts BURN-IN at sign-in, it runs in the background "
+                               "When Windows starts Ashvane at sign-in, it runs in the background "
                                "(tray only) without opening the window.")
     close_to_tray: bool = F(True, "Close button minimizes to tray",
-                            "Closing the window keeps BURN-IN running in the tray; Quit from the tray exits.")
+                            "Closing the window keeps Ashvane running in the tray; Quit from the tray exits.")
     open_window_on_launch: bool = F(True, "Open window on launch",
                                     "Show the dashboard window when the desktop app starts.")
     data_dir: str = F("", "Data folder",
@@ -161,10 +227,10 @@ class AppCfg(Section):
                        widget="path")
     overflow_dirs: list[str] = F(default_factory=list, title="Overflow drives",
                                  description="Extra folders to keep clips in once the main drive "
-                                 "runs low, in order. One per line, e.g. D:\\BURN-IN clips. New "
+                                 "runs low, in order. One per line, e.g. D:\\Ashvane clips. New "
                                  "clips go to the first one with room; clips already written stay "
                                  "where they are and keep playing.", widget="lines")
-    sweep_min: float = F(5.0, "Tidy up every (min)", "How often BURN-IN clears out work files "
+    sweep_min: float = F(5.0, "Tidy up every (min)", "How often Ashvane clears out work files "
                          "and buffers for streams it no longer watches. 0 = only when space runs "
                          "low.", ge=0, le=720)
     work_keep_h: float = F(0.5, "Keep work files for (h)", "Half-finished cuts and frames are "
@@ -172,7 +238,7 @@ class AppCfg(Section):
                            "a clip is being made, and a clip is finished or given up on well "
                            "inside that.", ge=0.1, le=168)
     overflow_free_gb: float = F(25.0, "Move on when free space is under (GB)",
-                                "Free space on the current drive that makes BURN-IN start writing "
+                                "Free space on the current drive that makes Ashvane start writing "
                                 "to the next one.", ge=1, le=2000)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = F(
         "INFO", "Log level", "How chatty clipbot.log and the console are.")
@@ -191,6 +257,10 @@ class AppCfg(Section):
                            ge=0, le=1440)
     session_hours: int = F(12, "Stay signed in (hours)", "A sign-in lasts at most this long.",
                            ge=1, le=720)
+    phone_session_days: int = F(90, "Phone stays signed in (days)",
+                                "How long the phone app stays signed in. The phone has its own Face ID "
+                                "/ fingerprint lock, so it is not signed out by the idle auto-lock above.",
+                                ge=1, le=365)
     login_max_attempts: int = F(5, "Wrong passwords before lockout",
                                 "Failed sign-ins allowed before a short lockout.", ge=1, le=50)
     login_lockout_s: int = F(60, "Lockout (s)", "How long sign-in is blocked after too many failures.",
@@ -209,7 +279,7 @@ class PathsCfg(Section):
     ffmpeg: str = F("", "ffmpeg executable", "Empty = the ffmpeg found on PATH.", widget="path")
     ffprobe: str = F("", "ffprobe executable", "Empty = the ffprobe found on PATH.", widget="path")
     streamlink: str = F("", "streamlink executable",
-                        "Empty = the streamlink bundled with BURN-IN (python -m streamlink in dev).",
+                        "Empty = the streamlink bundled with Ashvane (python -m streamlink in dev).",
                         widget="path")
 
 
@@ -722,7 +792,7 @@ class AnalyticsCfg(Section):
 
 
 class ClipImportCfg(Section):
-    """Repost the most popular viewer-made Twitch clips, with BURN-IN's edit on top."""
+    """Repost the most popular viewer-made Twitch clips, with Ashvane's edit on top."""
     enabled: bool = F(True, "Import popular Twitch clips",
                       "Pull top clips people made on Twitch and run them through the editor.")
     interval_h: float = F(3.0, "Check every (h)", "How often Twitch's top clips are pulled.", ge=0.25, le=168)
@@ -747,7 +817,7 @@ class ClipImportCfg(Section):
 class BacklogCfg(Section):
     """Failsafe that pauses capture when the pipeline falls behind."""
     capacity: int = F(100, "Capacity", "In-flight items that count as 100 % pressure.", ge=5, le=10000)
-    relief: bool = F(True, "Watch fewer streams when behind", "If the queue stays full, BURN-IN "
+    relief: bool = F(True, "Watch fewer streams when behind", "If the queue stays full, Ashvane "
                      "quietly watches fewer streams until it catches up, then goes back to normal. "
                      "Without this the failsafe can sit on screen for hours.")
     relief_after_s: float = F(180.0, "Back off after (s)", "How long the queue has to stay full "
@@ -899,7 +969,7 @@ class InstagramPostCfg(Section):
     min_gap_min: int = F(30, "Minimum gap (min)", "Minutes between Reels.", ge=0, le=1440)
     share_to_feed: bool = F(True, "Share to feed", "Also show the Reel on the profile grid.")
     token_refresh_days: int = F(30, "Refresh token after (days)",
-                                "Long-lived tokens last 60 days; BURN-IN renews them after this many.",
+                                "Long-lived tokens last 60 days; Ashvane renews them after this many.",
                                 ge=1, le=59)
 
 
@@ -916,7 +986,7 @@ class DiscordPostCfg(Section):
     daily_cap: int = F(200, "Daily cap", "Maximum messages per 24 h.", ge=0, le=5000)
     min_gap_min: int = F(0, "Minimum gap (min)", "Minutes between messages.", ge=0, le=1440)
     max_file_mb: float = F(24.0, "Max attachment (MB)", "Bigger clips are sent as text only.", ge=1, le=500)
-    username: str = F("BURN-IN Clips", "Webhook username", "Name shown on webhook messages.")
+    username: str = F("Ashvane Clips", "Webhook username", "Name shown on webhook messages.")
 
 
 class PostingCfg(Section):
@@ -966,7 +1036,7 @@ class AccountsCfg(Section):
     tiktok_redirect_uri: str = F("", "TikTok redirect URI",
                                  "Exactly as registered in the TikTok app, e.g. https://you.github.io/clipbot/callback/")
     instagram_user_id: str = F("", "Instagram user ID (optional)",
-                               "Leave empty: BURN-IN looks it up from the token.")
+                               "Leave empty: Ashvane looks it up from the token.")
     instagram_token: str = F("", "Instagram access token",
                              "From Meta app → Instagram → API setup with Instagram login → Generate token.",
                              secret=True, widget="password")
@@ -984,9 +1054,12 @@ class DashboardCfg(Section):
                   restart=True)
     port: int = F(8787, "Port", "Dashboard port.", ge=1024, le=65535, restart=True)
     remote: bool = F(False, "Phone remote", "Answer on your home Wi-Fi as well as this PC, so your "
-                     "phone can run BURN-IN from the sofa. Your profile password is still required "
+                     "phone can run Ashvane from the sofa. Your profile password is still required "
                      "to get in. Leave this off on networks you do not trust (cafes, hotels, "
                      "campus Wi-Fi).", restart=True)
+    remote_test_timeout_s: float = F(4.0, "Connection test wait (s)",
+                                     "How long Test connection waits for each address to answer.",
+                                     ge=1, le=30)
     refresh_ms: int = F(1500, "Refresh interval (ms)", "How often the dashboard polls /api/state.",
                         ge=250, le=60000)
     samples_limit: int = F(100, "Samples shown", "Recent samples listed in the dashboard.", ge=10, le=2000)
@@ -1040,8 +1113,8 @@ class UpdatesCfg(Section):
     """Automatic updates from GitHub Releases."""
     repo: str = F("", "GitHub repo", "owner/name of the GitHub repository publishing releases. "
                   "Empty uses the source bundled with this build, if any.")
-    check_on_start: bool = F(True, "Check on start", "Look for a newer version when BURN-IN starts.")
-    installer_asset: str = F("BURN-IN-Setup.exe", "Installer file name",
+    check_on_start: bool = F(True, "Check on start", "Look for a newer version when Ashvane starts.")
+    installer_asset: str = F("Ashvane-Setup.exe", "Installer file name",
                              "Name of the installer attached to each release.")
     timeout_s: float = F(15.0, "Check timeout (s)", "How long to wait for GitHub.", ge=2, le=120)
     download_timeout_s: float = F(900.0, "Download timeout (s)", "Longest the download may take.",
@@ -1051,17 +1124,23 @@ class UpdatesCfg(Section):
 
 
 class ViewerCfg(Section):
-    """The live viewer: click a monitor to watch exactly what BURN-IN is capturing."""
+    """The live viewer: click a monitor to watch exactly what Ashvane is capturing."""
     segments_ahead: int = F(4, "Segments offered", "How many of the newest buffer segments the "
                             "viewer can pull (more = smoother start, further behind live).", ge=2, le=20)
     chat_lines: int = F(30, "Chat lines", "Recent chat messages shown next to the video.", ge=0, le=40)
     clips_shown: int = F(8, "Clips shown", "Clips from this stream listed in the viewer.", ge=0, le=50)
     poll_ms: int = F(1500, "Update interval (ms)", "How often the viewer refreshes.", ge=500, le=10000)
-    live_max_lag_s: float = F(12.0, "Jump to live when behind (s)", "The viewer plays buffer "
-                              "segments back to back, so a slow moment leaves it playing old "
-                              "video forever. Once it is this far behind what has been captured, "
-                              "it skips forward to the newest video instead of crawling.",
-                              ge=2, le=120)
+    live_target_lag_s: float = F(10.0, "Distance behind live (s)", "Where the viewer holds "
+                                 "itself behind the newest captured video. Video arrives a buffer "
+                                 "segment at a time, so sitting right at the edge means stopping "
+                                 "every few seconds to wait for the next one; this much headroom "
+                                 "keeps it playing smoothly. It holds the distance by playing a "
+                                 "few percent faster or slower, which you cannot see.",
+                                 ge=3, le=60)
+    live_max_lag_s: float = F(25.0, "Jump to live when behind (s)", "If a stall leaves the viewer "
+                              "this far behind anyway, it skips forward instead of catching up "
+                              "slowly. Keep it well above the distance behind live.",
+                              ge=5, le=120)
     live_audio_kbps: int = F(128, "Viewer audio quality (kbps)", "The viewer's sound is "
                              "re-encoded at this rate. A stream segment starts mid-audio-frame, "
                              "so its original sound cannot be copied into a form the browser will "
@@ -1097,7 +1176,7 @@ class AssistantCfg(Section):
 
 
 class SafetyCfg(Section):
-    """Keep slurs and hateful language out of everything BURN-IN posts."""
+    """Keep slurs and hateful language out of everything Ashvane posts."""
     enabled: bool = F(True, "Content filter", "Mask blocked words in titles, captions, hashtags, "
                       "comments and on-screen captions.")
     level: Literal["slurs", "strong", "all"] = F(
@@ -1134,9 +1213,9 @@ class StudioCfg(Section):
 
 
 class PetsCfg(Section):
-    """Desktop companion: a little pixel pet that lives on your desktop while BURN-IN runs
+    """Desktop companion: a little pixel pet that lives on your desktop while Ashvane runs
     (window open or closed to the tray), reacts to what the bot does, and shows stats on hover."""
-    enabled: bool = F(True, "Show desktop pet", "A pet on your desktop while BURN-IN runs, even with "
+    enabled: bool = F(True, "Show desktop pet", "A pet on your desktop while Ashvane runs, even with "
                       "the window closed to the tray. Turns on and off instantly.")
     species: Literal["blip", "ember", "moss", "nib", "glitch"] = F(
         "blip", "Pet", "blip = tiny CRT screen · ember = flame wisp · moss = sprout blob · "
@@ -1150,7 +1229,7 @@ class PetsCfg(Section):
     sleep_after_min: float = F(10.0, "Naps after (min)", "Falls asleep after this long with nothing "
                                "happening. 0 = never.", ge=0, le=240)
     always_on_top: bool = F(True, "Always on top", "Keep the pet above other windows.")
-    moodlets: bool = F(True, "Moodlets", "Little status bubbles for what BURN-IN is doing.")
+    moodlets: bool = F(True, "Moodlets", "Little status bubbles for what Ashvane is doing.")
     moodlet_style: Literal["bubble", "badge", "icon"] = F(
         "bubble", "Moodlet style", "bubble = icon + text · badge = compact pill · icon = icon only.")
     moodlet_seconds: float = F(6.0, "Moodlet time (s)", "How long each bubble stays.", ge=1, le=60)
@@ -1170,7 +1249,7 @@ class PetsCfg(Section):
                           "platform.")
     sounds: bool = F(True, "Pet sounds", "Little chimes with the pet's reactions.")
     volume: float = F(0.45, "Pet volume", "0 = silent, 1 = full.", ge=0, le=1)
-    poll_ms: int = F(2000, "Update interval (ms)", "How often the pet checks on BURN-IN.",
+    poll_ms: int = F(2000, "Update interval (ms)", "How often the pet checks on Ashvane.",
                      ge=500, le=60000)
     fps: int = F(14, "Animation speed (fps)", "Sprite frames per second. 12-15 looks hand-drawn, "
                  "higher is smoother and costs a little more CPU.", ge=6, le=30)
@@ -1184,7 +1263,7 @@ class PetsCfg(Section):
                       "card opens.", ge=0, le=3000)
     leave_ms: int = F(250, "Close delay (ms)", "How long after the mouse leaves before the card "
                       "closes.", ge=0, le=3000)
-    double_click_ms: int = F(400, "Double-click time (ms)", "Two clicks inside this open BURN-IN.",
+    double_click_ms: int = F(400, "Double-click time (ms)", "Two clicks inside this open Ashvane.",
                              ge=120, le=1200)
     drag_slop_px: int = F(4, "Drag threshold (px)", "Move further than this and it counts as a drag, "
                           "not a click.", ge=1, le=40)
@@ -1394,6 +1473,9 @@ STORAGE_UPGRADES = {         # setting -> the old default it replaces
     "posting.cleanup_interval_s": 3600.0,
     "edit.keep_raw": True,
     "clip.abandon_after_h": 1.0,
+    "updates.installer_asset": "BURN-IN-Setup.exe",       # the app's old name
+    "posting.discord.username": "BURN-IN Clips",
+    "viewer.live_max_lag_s": 12.0,      # too close to two segments: it kept skipping
 }
 
 

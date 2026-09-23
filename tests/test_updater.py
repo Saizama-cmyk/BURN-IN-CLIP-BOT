@@ -8,8 +8,8 @@ import pytest
 from clipbot import __version__, updater
 from clipbot.config import Settings, merge_incoming
 
-REPO = "burn-in/app"
-URL = f"https://github.com/{REPO}/releases/download/v99.0.0/BURN-IN-Setup.exe"
+REPO = "ashvane/app"
+URL = f"https://github.com/{REPO}/releases/download/v99.0.0/Ashvane-Setup.exe"
 PAYLOAD = b"MZ" + b"installer" * 10
 
 
@@ -27,7 +27,7 @@ def run_check(payload, status=200):
 
 def release(**changes):
     value = {"tag_name": "v99.0.0", "body": "Release notes", "assets": [
-        {"name": "BURN-IN-Setup.exe", "size": len(PAYLOAD), "browser_download_url": URL,
+        {"name": "Ashvane-Setup.exe", "size": len(PAYLOAD), "browser_download_url": URL,
          "digest": "sha256:" + hashlib.sha256(PAYLOAD).hexdigest()}]}
     value.update(changes)
     return value
@@ -99,7 +99,7 @@ def download(dest, payload=PAYLOAD, expected_size=len(PAYLOAD), digest=None, hea
 
 def test_download_verified_and_atomically_replaced(tmp_path):
     dl = tmp_path / "dl"; dl.mkdir()
-    dest = dl / "BURN-IN-Setup.exe"
+    dest = dl / "Ashvane-Setup.exe"
     dest.write_bytes(b"previous installer")
     assert download(dest, digest=hashlib.sha256(PAYLOAD).hexdigest()) == dest
     assert dest.read_bytes() == PAYLOAD
@@ -115,7 +115,7 @@ def test_download_verified_and_atomically_replaced(tmp_path):
 ])
 def test_failed_download_keeps_previous_file_and_cleans_partial(tmp_path, kwargs):
     dl = tmp_path / "dl"; dl.mkdir()
-    dest = dl / "BURN-IN-Setup.exe"
+    dest = dl / "Ashvane-Setup.exe"
     dest.write_bytes(b"previous installer")
     with pytest.raises(ValueError):
         download(dest, **kwargs)
@@ -129,14 +129,14 @@ def test_download_network_error_cleans_partial(tmp_path):
         raise httpx.ConnectError("offline", request=request)
     async def go():
         async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            await updater.download(URL, dl / "BURN-IN-Setup.exe", settings(), http)
+            await updater.download(URL, dl / "Ashvane-Setup.exe", settings(), http)
     with pytest.raises(httpx.ConnectError):
         asyncio.run(go())
     assert not list(dl.iterdir())
 
 
 def test_installer_breaks_away_from_app_job(tmp_path, monkeypatch):
-    exe = tmp_path / "BURN-IN-Setup.exe"
+    exe = tmp_path / "Ashvane-Setup.exe"
     exe.write_bytes(PAYLOAD)
     spawned = []
     monkeypatch.setattr(updater.subprocess, "Popen", lambda *args, **kwargs: spawned.append((args, kwargs)))

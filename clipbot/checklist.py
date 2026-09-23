@@ -41,7 +41,7 @@ async def run_checklist(settings: Settings, http: httpx.AsyncClient) -> dict:
 
     sl = streamlink_cmd(s)
     if is_frozen() and not s.paths.streamlink:
-        ok, detail = True, "bundled with BURN-IN"
+        ok, detail = True, "bundled with Ashvane"
     else:
         ok, detail = await _runs([*sl, "--version"], timeout)
     items.append(_item("streamlink", "streamlink available", ok, detail, "paths.streamlink", True))
