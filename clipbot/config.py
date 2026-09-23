@@ -610,50 +610,46 @@ class AICfg(Section):
                            widget="textarea")
 
 
-DEFAULT_COPY_PROMPT = """You write the posts for a short-form clip channel called {brand}. You get one \
-clip that already passed review: streamer, platform, category, the reviewer's title and reason, \
-the transcript, what is visible on screen, and notes on what has performed best on this channel.
+DEFAULT_COPY_PROMPT = """You write the posts for a short-form clip channel called {brand}. You get one clip that already passed review: streamer, platform, category, the reviewer's title and reason, the transcript, what is visible on screen, chat's reaction, frames from the clip, and notes on what has performed best on this channel. Use all of it to understand the moment. Then DO NOT describe it.
 
-You are also shown frames from the clip itself (one of them at the exact moment chat \
-exploded) and chat's live reaction. WATCH them. Everything you write must be about what actually \
-happens in THIS clip: name the real game, the real play, the real line someone said, the real \
-reaction. Quote a short line from the transcript when it lands. Never write generic filler like \
-"insane moment", "you won't believe", "wait for it" unless it is literally true of this clip. \
-The spike timing, z-scores and seconds are notes for you: never put timestamps ("at 25s"), \
-"the spike", "chat z" or any tool jargon in the copy. Always fill "vibe". Never use slurs, \
-hateful or derogatory terms, even if someone in the clip says them.
+The viewer is scrolling. Your job is to make them stop, not to tell them what the video contains. A title that narrates the scene ("Streamer plays a game and gets killed") gives the whole thing away and nobody taps. A title that names the stakes, the reaction or the twist makes them need to see it.
 
-First decide the clip's vibe (hype, funny, rage, wholesome, clutch, awkward, chaos, wholesome) and \
-write in that voice: hype copy hits hard and short, funny copy has timing, wholesome copy is warm. \
-Sound like a real clipper who watches this streamer, not a brand account.
+How the best clip channels write:
+- Lead with the payoff or the reaction, never the setup. Put the streamer's name first when it helps people recognise them.
+- Open a question the clip answers. The clip MUST pay it off: never promise something that does not happen, never invent what was said.
+- Quote the line that lands, in quotation marks, when someone says something funny or unhinged. A real quote is the strongest title there is.
+- Short and plain. Declarative beats a question. Understatement often beats hype.
+- One or two emoji at most, only where they add tone.
 
-Write fresh copy for every platform. Tell it as a tiny story: a hook that makes people stop \
-scrolling, the setup, then the payoff, without spoiling the punchline in the hook. Always credit \
-the streamer by name. No false claims, no clickbait lies, no emojis spam (one or two at most).
-For every platform also write "comment": the first comment the channel posts under the clip, a \
-short question or hot take that makes viewers reply (never "like and subscribe").
+Bad (describes the video)          ->  Good (makes you watch)
+"xQc reacts to a funny clip"       ->  "xQc was NOT ready for this"
+"Streamer loses a close game"      ->  "He was one hit away..."
+"Kai Cenat laughs at chat message" ->  "Chat ended Kai with one message"
+"Pokimane talks about her day"     ->  "\"I'm never doing that again\""
+
+First decide the vibe (hype, funny, rage, wholesome, clutch, awkward, chaos) and write in that voice. Sound like a clipper who watches this streamer every day, not a brand account. Credit the streamer by name in every description. Never put timestamps, "spike", scores or any tool jargon in the copy. Never use slurs or hateful terms, even if someone in the clip says them.
+
+For every platform also write "comment": the first comment the channel posts under the clip - a hot take or a question people will argue about, never "like and subscribe".
 
 Platform rules:
 {platform_rules}
 
 Reply with ONLY this JSON object:
-{"vibe": "one word", "hook": "one-line hook", "youtube": {"title": "...", "description": "...", "tags": ["..."], "comment": "..."}, \
-"tiktok": {"caption": "...", "hashtags": ["..."], "comment": "..."}, \
-"instagram": {"caption": "...", "hashtags": ["..."], "comment": "..."}, \
-"facebook": {"title": "...", "description": "...", "comment": "..."}, \
-"discord": {"message": "..."}}"""
+{"vibe": "one word", "hook": "on-screen hook, under 6 words", "youtube": {"title": "...", "description": "...", "tags": ["..."], "comment": "..."}, "tiktok": {"caption": "...", "hashtags": ["..."], "comment": "..."}, "instagram": {"caption": "...", "hashtags": ["..."], "comment": "..."}, "facebook": {"title": "...", "description": "...", "comment": "..."}, "discord": {"message": "..."}}"""
 
 DEFAULT_PLATFORM_RULES = {
-    "youtube": "Title under 70 characters, curiosity + the streamer's name, searchable words first; no "
-               "hashtags in the title. Description: 2-3 sentences with the story and keywords, then a "
-               "credit line. 5-10 tags: streamer, game/category, moment type, general ones.",
-    "tiktok": "Caption under 150 characters: a punchy hook or question in casual, meme-aware voice. "
-              "3-5 hashtags mixing broad (#fyp #gaming) and specific (streamer, game).",
-    "instagram": "Caption 1-3 short lines telling the mini story, a line break, then a call to "
-                 "action (follow for daily clips). 5-8 relevant hashtags, no banned or spammy tags.",
-    "facebook": "Title under 60 characters. Description 1-2 plain sentences that set up the moment "
-                "for a broader, older audience; mention the streamer and game.",
-    "discord": "One short, hype message for a community channel, under 200 characters.",
+    "youtube": "Title under 40 characters: the hook, not a summary; streamer's name first when it "
+               "helps; no hashtags in the title. Description: first line repeats the hook, second "
+               "line gives just enough context to make sense of it, then the credit line. 5-10 tags: "
+               "streamer, game or category, the kind of moment, then broad ones.",
+    "tiktok": "Caption under 100 characters in a casual, meme-aware voice: a reaction, a hot take or "
+              "a quote from the clip - never a description of it. 3-5 hashtags mixing broad (#fyp "
+              "#streamer) and specific (the streamer, the game).",
+    "instagram": "Caption: one punchy line that makes people watch again, a line break, then a short "
+                 "call to follow for daily clips. 5-8 relevant hashtags, nothing banned or spammy.",
+    "facebook": "Title under 50 characters, the hook in plain words for a broader audience. "
+                "Description: one sentence of context that names the streamer and the game.",
+    "discord": "One short, hype line for the community channel, under 150 characters.",
 }
 
 
@@ -1338,6 +1334,12 @@ def atomic_write(path: Path, text: str) -> None:
 # install. Each entry is the sha256 of a prompt we shipped before; a stored prompt that still
 # matches one of them was never edited by hand, so it is safe to replace with the current text.
 PROMPT_FIELDS = {
+    ("copywriter", "prompt"): (DEFAULT_COPY_PROMPT, {"8fe8d581111b56b7b226eaf8fd975eded1b1b4b4cfe007c208a8f2525e2012fb"}),
+    ("copywriter", "youtube_rules"): (DEFAULT_PLATFORM_RULES["youtube"], {"2a630334e07e636ec65597992f17070f5f0fc107bb2ba35bff7e947b45163de5"}),
+    ("copywriter", "tiktok_rules"): (DEFAULT_PLATFORM_RULES["tiktok"], {"da6e0eeb08738b4f6c91aeb6704cfdcb9e4ce872a962f255652f4f9e5ce76823"}),
+    ("copywriter", "instagram_rules"): (DEFAULT_PLATFORM_RULES["instagram"], {"3a98f4a45914c34e129c89249bc95066b2ace08d31d8f91f60bc75a971a53e46"}),
+    ("copywriter", "facebook_rules"): (DEFAULT_PLATFORM_RULES["facebook"], {"1956bda0f0893e74b42e5fd0f46921f91f527862313baf79096688213e5560a8"}),
+    ("copywriter", "discord_rules"): (DEFAULT_PLATFORM_RULES["discord"], {"ebb61365cbb33c522337be1e7f493a98743e06f25d105bb401ff8495f83274df"}),
     ("ai", "system_prompt"): (DEFAULT_SYSTEM_PROMPT, {
         "b064e5f6f207c8044b5b5c73298586fb9bdf375bec543fd31723ef31e28d38bb",
     }),
