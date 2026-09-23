@@ -27,6 +27,10 @@ clashed with a clothing trademark and said nothing good about the product.
 
 **Kick and speed**
 
+- Clips are made again. A slip in the new "AI stage deadline" code threw away every clip the
+  AI had passed, right before rendering (NameError: verdict). Fixed, with a test that walks a
+  passed clip all the way to render.
+
 - Kick works again without developer keys. When the keys are missing or Kick refuses them, the
   top live Kick streams now come from Kick's own public front-page list, so Kick is watched and
   clipped either way. (Your Kick keys have been refused all day; this no longer stops Kick.)

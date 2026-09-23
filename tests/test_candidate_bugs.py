@@ -93,3 +93,45 @@ def test_restart_does_not_resume_clips_past_their_moment(pipeline):
     asyncio.run(pipeline._recover())
     assert launched == [fresh.id]
     assert pipeline.store.get_candidate(old.id).stage is Stage.FAILED
+
+
+def test_a_passed_clip_reaches_render_with_its_trim(pipeline, monkeypatch, tmp_path):
+    """Every clip the AI passed was dropped at the edit stage by a NameError ('verdict')."""
+    import clipbot.pipeline as mod
+    c = _candidate()
+    raw = tmp_path / "raw.mp4"
+    raw.write_bytes(b"x")
+    pipeline.captures = types.SimpleNamespace(get=lambda _key: object())
+    rendered = {}
+
+    async def cut(*_a, **_kw):
+        return types.SimpleNamespace(raw_path=str(raw), start_wall=0, end_wall=20)
+
+    async def qc(*_a, **_kw):
+        return types.SimpleNamespace(ok=True, duration=20.0, reason="")
+
+    async def transcribe(_path):
+        return types.SimpleNamespace(text="that was insane", words=[])
+
+    async def think(cand, _duration):
+        cand.verdict = {"passed": True, "trim_start": 2.0, "trim_end": 14.0, "title": "t",
+                        "score": 9, "peak_at": 6.0}
+
+    async def render(_raw, out, start, end, *_a, **kw):
+        rendered.update(start=start, end=end, spike=kw.get("spike_at"))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"clip")
+
+    async def nothing(*_a, **_kw):
+        return None
+
+    monkeypatch.setattr(mod, "assemble", cut)
+    monkeypatch.setattr(mod, "quality_check", qc)
+    monkeypatch.setattr(mod, "render", render)
+    monkeypatch.setattr(mod, "looks_like_dead_air", lambda *_a: False)
+    monkeypatch.setattr(pipeline.transcriber, "transcribe", transcribe)
+    monkeypatch.setattr(pipeline, "_think", think)
+    monkeypatch.setattr(pipeline, "_auto_facecam", nothing)
+    asyncio.run(pipeline._run_candidate(c))
+    assert c.error == "" and c.stage is Stage.SCHEDULED
+    assert rendered == {"start": 2.0, "end": 14.0, "spike": 6.0}

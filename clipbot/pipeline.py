@@ -556,6 +556,7 @@ class Pipeline:
             await self._save(c, Stage.EDIT)
             out = clips_target(self.settings, self.paths) / f"{c.event.target.login}_{c.id}.mp4"
             facecam = await self._auto_facecam(c)
+            verdict = c.verdict or {}
             async with self._edit_limit:
                 await render(Path(c.raw_path), out, verdict["trim_start"], verdict["trim_end"],
                              c.words, c.event.target.login, self.settings, self.paths.work,
