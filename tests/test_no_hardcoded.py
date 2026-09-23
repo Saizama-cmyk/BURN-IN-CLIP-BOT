@@ -26,7 +26,7 @@ REVIEWED_CONSTANTS = {
     "util.py": {"ERR_SNIPPET"},                                         # log/display truncation
     "app.py": {"STARTUP_POLL_S", "LAN_PROBE_PORT"},                                       # wait-for-bind poll
     "discovery.py": {"TOKEN_REFRESH_MARGIN_S", "KICK_CHANNELS_MAX",      # OAuth margin, API limits
-                     "KICK_V1_SEARCH_MAX", "KICK_V1_GONE"},
+                     "KICK_V1_SEARCH_MAX", "KICK_V1_GONE", "KEYS_REJECTED"},
     "chat.py": {"TWITCH_NICK_DIGITS"},
     "agent/skills.py": {"NAME_MAX", "DESC_MAX"},                        # file-name and field caps
     "agent/tools.py": {"CLIPS_MAX", "LOG_MAX", "TEXT_MAX", "CLIPS_DEFAULT",
