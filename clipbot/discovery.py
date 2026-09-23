@@ -28,12 +28,17 @@ KICK_API = "https://api.kick.com/public"
 KICK_CHANNELS_MAX = 50        # API limit: slugs per /v1/channels call
 KICK_V1_SEARCH_MAX = 100      # API limit: limit= on the (deprecated) v1 search
 KICK_V1_GONE = (404, 410)     # v1 search retired → switch to v2 for good
+KEYS_REJECTED = (400, 401)    # the token endpoint refused the client ID/secret
 KICK_CHANNEL_V2 = "https://kick.com/api/v2/channels/{slug}"
 TOKEN_REFRESH_MARGIN_S = 60
 
 
 class DiscoveryError(RuntimeError):
     pass
+
+
+class KeysRejected(DiscoveryError):
+    """The platform turned the client ID/secret down. Retrying cannot help until they change."""
 
 
 class KickV1Gone(DiscoveryError):
@@ -129,6 +134,7 @@ class Discovery:
         self.messages: dict[str, str] = {}
         self.last_refresh: float = 0.0
         self._warned: set[str] = set()
+        self._rejected: set[str] = set()   # platforms whose current keys were refused
 
     def apply(self, settings: Settings) -> None:
         old = self.settings
@@ -137,10 +143,12 @@ class Discovery:
                                                                 settings.twitch.client_secret):
             self._twitch_token = _Token()
             self._warned.discard("twitch")
+            self._rejected.discard("twitch")
         if (old.kick.client_id, old.kick.client_secret) != (settings.kick.client_id,
                                                             settings.kick.client_secret):
             self._kick_token = _Token()
             self._warned.discard("kick")
+            self._rejected.discard("kick")
 
     @property
     def _timeout(self) -> float:
@@ -163,10 +171,21 @@ class Discovery:
                     self._warned.add(name)
                     logger.warning("%s discovery skipped: missing client ID/secret", name)
                 continue
+            if name in self._rejected:
+                continue                       # same keys as last time: asking again cannot work
             try:
                 self.targets[platform] = await fn(cfg)
                 self.messages[name] = (f"{name.title()}: {len(self.targets[platform])} streams "
                                        f"selected")
+            except KeysRejected as exc:
+                # Asking every cycle with keys the platform has already refused only fills the
+                # log and spends a request. Say it once, plainly, and wait for new keys - the
+                # settings change clears this and discovery resumes on its own.
+                self._rejected.add(name)
+                logger.warning("%s rejected the client ID/secret; not asking again until they "
+                               "change: %s", name, exc)
+                self.messages[name] = (f"{name.title()}: keys rejected - paste the client ID and "
+                                       f"secret again in Settings → {name.title()}")
             except (httpx.HTTPError, DiscoveryError, ValueError, KeyError) as exc:
                 logger.warning("%s discovery failed, keeping previous list: %s", name, exc)
                 self.messages[name] = f"{name.title()}: API error ({exc}); keeping previous list"
@@ -270,6 +289,8 @@ class Discovery:
             r = await self.http.post(KICK_TOKEN_URL, timeout=self._timeout, data={
                 "client_id": cfg.client_id, "client_secret": cfg.client_secret,
                 "grant_type": "client_credentials"})
+            if r.status_code in KEYS_REJECTED:
+                raise KeysRejected(f"Kick token HTTP {r.status_code}: {r.text[:ERR_SNIPPET]}")
             if r.status_code != 200:
                 raise DiscoveryError(f"Kick token HTTP {r.status_code}: {r.text[:ERR_SNIPPET]}")
             body = r.json()

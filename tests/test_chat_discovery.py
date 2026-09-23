@@ -201,3 +201,37 @@ def test_fill_slots_when_min_viewers_is_too_strict():
     assert [t.login for t in select_targets(strict, [], [], [group], 10)] == ["s0", "s1"]
     filled = PlatformCfg(slots=4, min_viewers=15000, fill_slots=True)
     assert [t.login for t in select_targets(filled, [], [], [group], 10)] == ["s0", "s1", "s2", "s3"]
+
+
+def test_rejected_kick_keys_are_asked_once_not_every_cycle():
+    """Kick refused the keys 19 times in one session. Once is enough until the keys change."""
+    import asyncio
+    import httpx
+    from clipbot.config import Settings
+    from clipbot.discovery import Discovery
+
+    calls = {"token": 0}
+
+    def handler(request):
+        if "oauth/token" in str(request.url):
+            calls["token"] += 1
+            return httpx.Response(401, json={"error": "invalid_client"})
+        return httpx.Response(200, json={"data": []})
+
+    s = Settings()
+    s.twitch.enabled = False
+    s.kick.enabled, s.kick.client_id, s.kick.client_secret = True, "id", "bad"
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            d = Discovery(s, http)
+            for _ in range(3):
+                await d.refresh()
+            assert calls["token"] == 1
+            assert "keys rejected" in d.messages["kick"]
+            fresh = s.model_copy(deep=True)
+            fresh.kick.client_secret = "new"
+            d.apply(fresh)
+            await d.refresh()
+            assert calls["token"] == 2            # new keys: it tries again
+    asyncio.run(go())
