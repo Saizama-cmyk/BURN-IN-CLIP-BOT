@@ -583,7 +583,7 @@ class AICfg(Section):
                                 "may spend on one clip - watching, judging and writing together. "
                                 "Past this it is dropped and the next clip starts.",
                                 ge=30, le=3600)
-    keep_alive: str = F("30m", "Keep model loaded", "Ollama keep_alive (e.g. 30m, 1h, -1 = forever).")
+    keep_alive: str = F("3h", "Keep model loaded", "Ollama keep_alive (e.g. 30m, 1h, -1 = forever).")
     num_ctx: int = F(8192, "Context size", "Tokens of context requested from Ollama.", ge=1024, le=262144)
     retries: int = F(1, "Retries on bad JSON", "Extra attempts before rejecting as model_error.", ge=0, le=5)
     unavailable_retry_s: float = F(30.0, "Ollama down retry (s)",
@@ -609,7 +609,7 @@ class AICfg(Section):
                             "Tokens for frames + answer (each 640px frame costs ~1,000).",
                             ge=4096, le=131072)
     vision_temperature: float = F(0.2, "Vision temperature", "Lower = more literal descriptions.", ge=0, le=2)
-    vision_keep_alive: str = F("30m", "Keep vision model loaded",
+    vision_keep_alive: str = F("3h", "Keep vision model loaded",
                                "Ollama keep_alive for the vision model (it shares the GPU with the judge).")
     auto_pull: bool = F(True, "Download missing models", "On start, download the Ollama models the "
                         "judge profile needs if they aren't installed yet (first-run setup).")
@@ -1476,6 +1476,11 @@ STORAGE_UPGRADES = {         # setting -> the old default it replaces
     "updates.installer_asset": "BURN-IN-Setup.exe",       # the app's old name
     "posting.discord.username": "BURN-IN Clips",
     "viewer.live_max_lag_s": 12.0,      # too close to two segments: it kept skipping
+    # the "thinking" build writes a long hidden essay before every verdict; on one GPU that is
+    # the difference between a few seconds and a 70 s timeout per clip
+    "ai.vision_model": "qwen3-vl:8b",
+    "ai.keep_alive": "30m",             # reloading 6 GB after every quiet spell stalled the queue
+    "ai.vision_keep_alive": "30m",
 }
 
 

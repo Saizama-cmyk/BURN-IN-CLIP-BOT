@@ -265,3 +265,12 @@ def test_remote_test_explains_when_remote_is_off(running_app):
     _, c = running_app
     d = c.post("/api/remote/test", headers=H).json()
     assert d["ok"] is False and d["routes"] == [] and "Phone remote is off" in d["advice"]
+
+
+def test_phone_model_mirror_only_serves_known_models(running_app):
+    _, c = running_app
+    assert c.get("/api/assistant/models/not-a-model").json()["error"] == "unknown model"
+    assert c.post("/api/assistant/models/../../etc/fetch", headers=H).status_code in (404, 405)
+    st = c.get("/api/assistant/models/gemma3-1b").json()
+    assert st["ready"] is False and st["bytes"] > 0
+    assert c.get("/api/assistant/models/gemma3-1b/file").status_code == 404

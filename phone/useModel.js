@@ -7,11 +7,14 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { Switch, Text, View } from "react-native";
-import { deviceProfile, download, freeBytes, isDownloaded, load, pickModel, reply } from "./localAi";
+import { deviceProfile, download, downloadedIds, freeBytes, isDownloaded, load, pendingProgress, pickModel,
+  reply } from "./localAi";
 import { call } from "./api";
 import { Button, C, Card, t } from "./theme";
 
 const CHAT_TIMEOUT_MS = 180000;
+const PC_POLL_MS = 1500;           // how often the PC is asked how its copy is coming along
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 export function useModel({ host, token }) {
   const linked = !!(host && token);
@@ -22,14 +25,17 @@ export function useModel({ host, token }) {
   const [preferPhone, setPreferPhone] = useState(true);
   const [problem, setProblem] = useState("");
   const [checked, setChecked] = useState(false);
+  const [stage, setStage] = useState("");          // what the download is doing, in words
+  const [resumeAt, setResumeAt] = useState(0);     // an interrupted download waiting to continue
   const context = useRef(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const best = pickModel(profile, await freeBytes());
+      const best = pickModel(profile, await freeBytes(), await downloadedIds());
       if (!alive) return;
       setModel(best);
+      if (best) setResumeAt(await pendingProgress(best));
       if (best && await isDownloaded(best)) {
         try {
           context.current = await load(best);
@@ -41,16 +47,38 @@ export function useModel({ host, token }) {
     return () => { alive = false; };
   }, [profile]);
 
+  /** Ask the PC for its copy: it fetches the model once, then the phone copies it over Wi-Fi. */
+  const viaPc = async () => {
+    const path = `/api/assistant/models/${model.id}`;
+    let st = (await call(host, `${path}/fetch`, { token, method: "POST" })).data;
+    while (st && !st.ready) {
+      if (st.error) throw new Error(st.error);
+      setStage("Your PC is fetching it");
+      setProgress(st.bytes ? st.have / st.bytes : 0);
+      await sleep(PC_POLL_MS);
+      st = (await call(host, path, { token })).data;
+    }
+    return { url: `${host}${path}/file`, headers: { Authorization: `Bearer ${token}`, "X-ClipBot": "1" } };
+  };
+
   const fetchWeights = async () => {
     setProgress(0); setProblem("");
     try {
-      await download(model, setProgress);
+      let source = null;
+      if (linked) {
+        try { source = await viaPc(); }
+        catch (e) { setStage(""); }            // the PC can't help: go straight to the internet
+      }
+      setStage(source ? "Copying from your PC" : "Downloading");
+      await download(model, setProgress, source);
+      setStage("Loading");
       context.current = await load(model);
-      setReady(true);
+      setReady(true); setResumeAt(0);
     } catch (e) {
-      setProblem(`Download failed: ${e.message}`);
+      setProblem(`Download stopped: ${e.message}. Tap to carry on from where it stopped.`);
+      setResumeAt(await pendingProgress(model));
     }
-    setProgress(-1);
+    setStage(""); setProgress(-1);
   };
 
   const onPhone = ready && !!context.current && (preferPhone || !linked);
@@ -71,7 +99,7 @@ export function useModel({ host, token }) {
       : "This phone can't host a model. Connect your PC under Desk to use the one there.");
   };
 
-  return { profile, model, ready, progress, problem, checked, linked, where, preferPhone,
+  return { profile, model, ready, progress, problem, checked, linked, where, preferPhone, stage, resumeAt,
            setPreferPhone, fetchWeights, ask };
 }
 
@@ -98,15 +126,19 @@ export function ModelCard({ m, compact }) {
           <Text style={[t.muted, { marginTop: 2 }]}>{model.blurb} This phone can give an app about {gb(profile.usableGb)}; it needs {gb(model.needsGb)}.</Text>
           {!ready && progress < 0 && (
             <View style={{ marginTop: 14 }}>
-              <Button label={`Download ${(model.bytes / 1e9).toFixed(1)} GB`} icon="cloud-download-outline" kind="primary" onPress={m.fetchWeights} />
-              <Text style={[t.faint, { marginTop: 8 }]}>Once. After that it works with no internet at all.</Text>
+              <Button label={m.resumeAt > 0 ? `Carry on (${Math.round(m.resumeAt * 100)}% done)`
+                : `Download ${(model.bytes / 1e9).toFixed(1)} GB`} icon="cloud-download-outline" kind="primary" onPress={m.fetchWeights} />
+              <Text style={[t.faint, { marginTop: 8 }]}>
+                {linked ? "Once, copied from your PC over Wi-Fi (much faster). After that it works with no internet at all."
+                  : "Once. It keeps going with the screen locked, and picks up where it stopped. After that it works offline."}
+              </Text>
             </View>)}
           {progress >= 0 && (
             <View style={{ marginTop: 14 }}>
               <View style={{ height: 6, borderRadius: 3, backgroundColor: C.s3, overflow: "hidden" }}>
                 <View style={{ height: 6, width: `${Math.round(progress * 100)}%`, backgroundColor: C.ember }} />
               </View>
-              <Text style={[t.faint, { marginTop: 8 }]}>Downloading… {Math.round(progress * 100)}%</Text>
+              <Text style={[t.faint, { marginTop: 8 }]}>{m.stage || "Downloading"}… {Math.round(progress * 100)}%</Text>
             </View>)}
         </>
       ) : (

@@ -85,12 +85,20 @@ def test_twitch_discovery_and_error_keeps_list():
 
 
 def test_missing_credentials_graceful():
+    """No Twitch keys: Twitch waits for them. No Kick keys: Kick uses its public front-page list."""
+    def handler(req: httpx.Request):
+        assert req.url.host == "web.kick.com"          # nothing else may be called without keys
+        return httpx.Response(200, json={"data": {"livestreams": [
+            {"channel": {"slug": "a", "username": "A"}, "viewer_count": 900, "language": "en",
+             "category": {"id": 5, "name": "Slots"}, "title": "x"}], "pagination": {}}})
+
     async def go():
-        async with httpx.AsyncClient() as http:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
             d = Discovery(Settings(), http)
-            assert await d.refresh() == []
+            got = await d.refresh()
             assert "no client ID/secret" in d.messages["twitch"]
-            assert "no client ID/secret" in d.messages["kick"]
+            assert "no keys needed" in d.messages["kick"]
+            assert [t.login for t in got] == ["a"] and got[0].display_name == "A"
     asyncio.run(go())
 
 

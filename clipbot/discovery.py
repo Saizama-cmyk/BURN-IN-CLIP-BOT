@@ -30,6 +30,9 @@ KICK_V1_SEARCH_MAX = 100      # API limit: limit= on the (deprecated) v1 search
 KICK_V1_GONE = (404, 410)     # v1 search retired → switch to v2 for good
 KEYS_REJECTED = (400, 401)    # the token endpoint refused the client ID/secret
 KICK_CHANNEL_V2 = "https://kick.com/api/v2/channels/{slug}"
+# The feed kick.com's own front page uses: top live streams, sorted, no keys needed.
+KICK_PUBLIC_LIVE = "https://web.kick.com/api/v1/livestreams"
+KICK_PUBLIC_PAGE = 100          # streams per page of that feed
 TOKEN_REFRESH_MARGIN_S = 60
 
 
@@ -163,6 +166,19 @@ class Discovery:
                 self.targets[platform] = []
                 self.messages[name] = f"{name.title()}: disabled in Settings"
                 continue
+            keyless = platform == Platform.KICK and (
+                not (cfg.client_id and cfg.client_secret) or name in self._rejected)
+            if keyless:
+                try:
+                    self.targets[platform] = await self._kick(cfg, public=True)
+                    note = ("keys rejected - using Kick's public list"
+                            if name in self._rejected else "no keys needed")
+                    self.messages[name] = (f"Kick: {len(self.targets[platform])} streams "
+                                           f"selected ({note})")
+                except (httpx.HTTPError, DiscoveryError, ValueError, KeyError) as exc:
+                    logger.warning("kick public discovery failed, keeping previous list: %s", exc)
+                    self.messages[name] = f"Kick: public list unavailable ({exc})"
+                continue
             if not (cfg.client_id and cfg.client_secret):
                 self.targets[platform] = []
                 self.messages[name] = (f"{name.title()}: no client ID/secret — add them in "
@@ -186,6 +202,13 @@ class Discovery:
                                "change: %s", name, exc)
                 self.messages[name] = (f"{name.title()}: keys rejected - paste the client ID and "
                                        f"secret again in Settings → {name.title()}")
+                if platform == Platform.KICK:
+                    try:
+                        self.targets[platform] = await self._kick(cfg, public=True)
+                        self.messages[name] = (f"Kick: {len(self.targets[platform])} streams "
+                                               f"selected (keys rejected - using Kick's public list)")
+                    except (httpx.HTTPError, DiscoveryError, ValueError, KeyError) as exc2:
+                        logger.warning("kick public discovery failed too: %s", exc2)
             except (httpx.HTTPError, DiscoveryError, ValueError, KeyError) as exc:
                 logger.warning("%s discovery failed, keeping previous list: %s", name, exc)
                 self.messages[name] = f"{name.title()}: API error ({exc}); keeping previous list"
@@ -325,7 +348,7 @@ class Discovery:
         return StreamTarget(
             platform=Platform.KICK, login=str(slug),
             display_name=str(_dig(s, "broadcaster_user.username", "broadcaster.username",
-                                  "user.username", "username", default=slug)),
+                                  "channel.username", "user.username", "username", default=slug)),
             category=str(_dig(s, "category.name", "categories.0.name", default="")),
             viewers=_as_int(_dig(s, "viewer_count", "viewers", "stream.viewer_count", default=0)),
             title=str(_dig(s, "stream_title", "session_title", "title", default="")))
@@ -393,11 +416,68 @@ class Discovery:
             self._kick_cat_ids[key] = _as_int(match.get("id"))
         return self._kick_cat_ids[key]
 
-    async def _kick(self, cfg: PlatformCfg) -> list[StreamTarget]:
+    def _public_headers(self) -> dict[str, str]:
+        return {"User-Agent": self.settings.discovery.user_agent,
+                "Accept": "application/json, text/plain, */*", "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://kick.com/", "Origin": "https://kick.com"}
+
+    async def _kick_public_live(self, cfg: PlatformCfg) -> list[dict]:
+        """Top live Kick streams from the public front-page feed, most-watched first."""
+        d = self.settings.discovery
+        langs = [x.strip() for x in cfg.languages if x.strip()]
+        out: list[dict] = []
+        for lang in (langs or [""]):
+            cursor = ""
+            for _ in range(d.kick_max_pages):
+                params: list[tuple[str, Any]] = [("limit", KICK_PUBLIC_PAGE),
+                                                 ("sort", "viewer_count_desc")]
+                if lang:
+                    params.append(("language", lang))
+                if cursor:
+                    params.append(("cursor", cursor))
+                r = await self.http.get(KICK_PUBLIC_LIVE, params=params,
+                                        headers=self._public_headers(), timeout=self._timeout)
+                if r.status_code != 200:
+                    raise DiscoveryError(f"Kick public list HTTP {r.status_code}")
+                raw = r.json()
+                body = raw.get("data") if isinstance(raw, dict) else None
+                body = body if isinstance(body, dict) else {}
+                page = [x for x in body.get("livestreams") or [] if isinstance(x, dict)]
+                out += page
+                cursor = _dig(body, "pagination.next_cursor", default="")
+                if not cursor or len(out) >= d.fetch_limit * len(langs or [""]) or not page:
+                    break
+        return sorted(out, key=lambda s: -_as_int(_dig(s, "viewer_count", default=0)))
+
+    async def _kick_public_forced(self, slugs: list[str]) -> list[StreamTarget]:
+        """Forced/boosted Kick channels that are live, via the public channel page."""
+        live: list[StreamTarget] = []
+        for slug in slugs:
+            try:
+                r = await self.http.get(KICK_CHANNEL_V2.format(slug=slug),
+                                        headers=self._public_headers(), timeout=self._timeout)
+                body = r.json() if r.status_code == 200 else {}
+            except (httpx.HTTPError, ValueError):
+                continue
+            stream = body.get("livestream") if isinstance(body, dict) else None
+            if not stream:
+                continue
+            live.append(StreamTarget(
+                platform=Platform.KICK, login=slug,
+                display_name=str(_dig(body, "user.username", default=slug)),
+                category=str(_dig(stream, "categories.0.name", default="")),
+                viewers=_as_int(stream.get("viewer_count", 0)),
+                title=str(stream.get("session_title", ""))))
+        return live
+
+    async def _kick(self, cfg: PlatformCfg, public: bool = False) -> list[StreamTarget]:
         d = self.settings.discovery
         forced_live: list[StreamTarget] = []
         slugs = list(dict.fromkeys([f.strip().lower() for f in cfg.forced_streamers if f.strip()]
                                    + self.boosted.get("kick", [])))
+        if public:
+            forced_live = await self._kick_public_forced(slugs)
+            slugs = []
         for i in range(0, len(slugs), KICK_CHANNELS_MAX):
             data = await self._kick_get(cfg, "v1/channels",
                                         [("slug", s) for s in slugs[i:i + KICK_CHANNELS_MAX]])
@@ -409,7 +489,14 @@ class Discovery:
                     t.viewers = _as_int(_dig(ch, "stream.viewer_count", default=t.viewers))
                     forced_live.append(t)
         forced_groups = []
-        for cat in cfg.forced_categories:
+        public_top = await self._kick_public_live(cfg) if public else None
+        for cat in cfg.forced_categories if public else []:
+            key = cat.strip().lower()
+            if key:
+                forced_groups.append([t for s in public_top
+                                      if str(_dig(s, "category.name", default="")).lower() == key
+                                      and self._kick_lang_ok(cfg, s) and (t := self._kick_target(s))])
+        for cat in cfg.forced_categories if not public else []:
             if cat.strip():
                 cid = await self._kick_category(cfg, cat)
                 if cid is not None:
@@ -417,7 +504,8 @@ class Discovery:
                     forced_groups.append([t for s in raw if self._kick_lang_ok(cfg, s)
                                           and (t := self._kick_target(s))])
         # Kick has no "top categories" endpoint: rank categories by viewers in the top list.
-        top = [s for s in await self._kick_livestreams(cfg, None) if self._kick_lang_ok(cfg, s)]
+        raw_top = public_top if public else await self._kick_livestreams(cfg, None)
+        top = [s for s in raw_top if self._kick_lang_ok(cfg, s)]
         by_cat: dict[int, list[dict]] = {}
         totals: dict[int, int] = {}
         for s in top:

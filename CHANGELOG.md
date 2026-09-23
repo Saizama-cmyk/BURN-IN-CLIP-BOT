@@ -25,6 +25,16 @@ clashed with a clothing trademark and said nothing good about the product.
 - Updating from BURN-IN removes its old program folder, shortcuts and autostart entry, so there is
   one app, not two. The phone-remote firewall script also removes the rule under the old name.
 
+**Kick and speed**
+
+- Kick works again without developer keys. When the keys are missing or Kick refuses them, the
+  top live Kick streams now come from Kick's own public front-page list, so Kick is watched and
+  clipped either way. (Your Kick keys have been refused all day; this no longer stops Kick.)
+- Much faster AI. The vision model was the "thinking" build of qwen3-vl, which writes a long
+  hidden essay before every answer; on one GPU that meant 70 s timeouts, a full queue and
+  captures paused for hours. It now uses the instruct build, and keeps it loaded for 3 hours
+  instead of reloading 6 GB after every quiet spell.
+
 **Phone connection**
 
 - The phone kept getting signed out. Its sign-in was an ordinary dashboard session, so the
@@ -142,6 +152,16 @@ First release.
 - Judge profiles that adapt to your GPU, and automatic updates.
 
 ## Phone
+
+### 1.0.19 — 2026-09-23
+
+- The assistant's model stays downloaded. It used to ask again whenever the phone's free space
+  dipped below the model's size - counting the model's own space against it. A model that is on
+  the phone is now always used.
+- Downloads carry on from where they stopped (closing the app no longer restarts from zero) and
+  keep going with the screen locked.
+- Much faster download when your PC is connected: the PC fetches the model once over its own
+  connection and the phone copies it across your home Wi-Fi.
 
 ### 1.0.18 — 2026-09-23
 

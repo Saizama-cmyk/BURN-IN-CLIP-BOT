@@ -81,39 +81,89 @@ export function deviceProfile() {
   };
 }
 
-/** The best model this device can host, or null when it cannot host one. */
-export function pickModel(profile, freeBytes = Infinity) {
-  return LADDER.find(m => m.needsGb <= profile.usableGb && m.bytes * 1.05 < freeBytes) || null;
+/**
+ * The best model this device can host, or null when it cannot host one.
+ *
+ * A model that is already on the phone is never passed over for lack of disk space - it is
+ * already using that space. (Checking free space against a model that is already downloaded is
+ * exactly what used to make the app ask for a download it had just finished.)
+ */
+export function pickModel(profile, freeBytes = Infinity, downloaded = new Set()) {
+  return LADDER.find(m => m.needsGb <= profile.usableGb
+    && (downloaded.has(m.id) || m.bytes * 1.05 < freeBytes)) || null;
 }
 
 export function modelPath(model) {
   return `${FileSystem.documentDirectory}models/${model.id}.gguf`;
 }
+const resumePath = (model) => `${FileSystem.documentDirectory}models/${model.id}.resume.json`;
+const DIR = () => `${FileSystem.documentDirectory}models`;
+const SAVE_EVERY_MS = 5000;    // how often a download's resume point is written down
 
 export async function isDownloaded(model) {
   const info = await FileSystem.getInfoAsync(modelPath(model));
   // a half-finished download is worse than none: it loads as garbage, so treat it as missing
-  return info.exists && info.size >= model.bytes * 0.99;
+  return info.exists && info.size >= model.bytes * 0.99 && !(await FileSystem.getInfoAsync(resumePath(model))).exists;
 }
 
-/** Download the weights, reporting 0..1 progress. Resumes if it was interrupted. */
-export async function download(model, onProgress) {
-  await FileSystem.makeDirectoryAsync(`${FileSystem.documentDirectory}models`, { intermediates: true })
-    .catch(() => {});
+/** Ids of every model already fully on the phone. */
+export async function downloadedIds() {
+  const out = new Set();
+  for (const m of LADDER) if (await isDownloaded(m)) out.add(m.id);
+  return out;
+}
+
+/** How far an interrupted download got (0..1), or 0 if none is waiting. */
+export async function pendingProgress(model) {
+  try {
+    const saved = JSON.parse(await FileSystem.readAsStringAsync(resumePath(model)));
+    return Math.min(1, (saved.written || 0) / model.bytes);
+  } catch { return 0; }
+}
+
+/**
+ * Download the weights, reporting 0..1 progress. `source` is {url, headers} - the PC's copy over
+ * home Wi-Fi when it has one, otherwise the internet. The transfer runs as a background session,
+ * so it keeps going while the screen is locked, and its resume point is saved every few seconds
+ * so a closed app carries on from where it stopped instead of starting again.
+ */
+export async function download(model, onProgress, source = null) {
+  await FileSystem.makeDirectoryAsync(DIR(), { intermediates: true }).catch(() => {});
+  let saved = null;
+  try { saved = JSON.parse(await FileSystem.readAsStringAsync(resumePath(model))); } catch { /* fresh */ }
+  const url = source?.url || model.url;
+  const options = { headers: source?.headers || {}, sessionType: FileSystem.FileSystemSessionType.BACKGROUND };
+  let written = saved?.written || 0, lastSave = 0;
   const task = FileSystem.createDownloadResumable(
-    model.url, modelPath(model), {},
+    url, modelPath(model), options,
     ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+      written = totalBytesWritten;
       const total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : model.bytes;
       onProgress(Math.min(1, totalBytesWritten / total));
+      const now = Date.now();
+      if (now - lastSave > SAVE_EVERY_MS) {
+        lastSave = now;
+        const state = task.savable();
+        FileSystem.writeAsStringAsync(resumePath(model),
+          JSON.stringify({ ...state, written, source: url })).catch(() => {});
+      }
     },
+    saved && saved.source === url ? saved.resumeData : undefined,
   );
-  const res = await task.downloadAsync();
+  const res = saved && saved.source === url && saved.resumeData
+    ? await task.resumeAsync() : await task.downloadAsync();
   if (!res?.uri) throw new Error("the download did not finish");
+  const info = await FileSystem.getInfoAsync(modelPath(model));
+  if (!info.exists || info.size < model.bytes * 0.99) {
+    throw new Error(`only ${Math.round((info.size || 0) / 1e6)} MB of ${Math.round(model.bytes / 1e6)} MB arrived`);
+  }
+  await FileSystem.deleteAsync(resumePath(model), { idempotent: true });
   return res.uri;
 }
 
 export async function removeModel(model) {
   await FileSystem.deleteAsync(modelPath(model), { idempotent: true });
+  await FileSystem.deleteAsync(resumePath(model), { idempotent: true });
 }
 
 export async function freeBytes() {

@@ -454,6 +454,26 @@ def create_app(ctx) -> FastAPI:
                 "chat": snap.get("chat"), "monitors": len(snap.get("monitors") or []), **log,
                 "analytics": syslog.analytics(samples, snap)}
 
+    from ..agent.models import MODELS, ModelMirror
+    mirror = ModelMirror(ctx.paths.data, ctx.settings.assistant.watch_timeout_s)
+
+    @app.get("/api/assistant/models/{model_id}")
+    async def phone_model_status(model_id: str):
+        """How far the PC's copy of a phone model has got."""
+        return mirror.status(model_id)
+
+    @app.post("/api/assistant/models/{model_id}/fetch")
+    async def phone_model_fetch(model_id: str):
+        """Have the PC download a phone model, so the phone can copy it over home Wi-Fi."""
+        return mirror.fetch(model_id)
+
+    @app.get("/api/assistant/models/{model_id}/file")
+    async def phone_model_file(model_id: str):
+        """The model file itself, resumable (Range requests), for the phone to copy."""
+        if model_id not in MODELS or not mirror.status(model_id).get("ready"):
+            raise HTTPException(404, "not on the PC yet")
+        return FileResponse(mirror.path(model_id), media_type="application/octet-stream")
+
     @app.post("/api/remote/test")
     async def remote_test():
         """Try every address the phone could use, from this PC, and say which one to type."""

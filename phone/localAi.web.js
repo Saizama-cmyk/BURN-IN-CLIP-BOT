@@ -13,6 +13,8 @@ export function deviceProfile() {
 export const pickModel = () => LADDER[0];
 export const modelPath = () => "";
 export const isDownloaded = async () => true;
+export const downloadedIds = async () => new Set(["preview"]);
+export const pendingProgress = async () => 0;
 export const download = async () => "";
 export const removeModel = async () => {};
 export const freeBytes = async () => Infinity;
