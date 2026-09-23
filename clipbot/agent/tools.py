@@ -1,7 +1,7 @@
 """What the assistant is allowed to do.
 
 Every tool is a small, named function over the running app: read the state, read clips, read the
-log, publish a clip someone already approved, pause or resume. Nothing here can delete a clip,
+log, publish a clip, pause or resume. Nothing here can delete a clip,
 change a password, spend money or touch a file outside the app's own folders - an assistant
 driven by a language model should not be one wrong sentence away from damage.
 
@@ -9,6 +9,7 @@ Tools are described to the model in the JSON shape Ollama expects, and dispatche
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
@@ -21,7 +22,7 @@ TEXT_MAX = 4000
 CLIPS_DEFAULT = 10        # a sensible page of clips when the model does not say
 CHAT_SAMPLE_MAX = 20      # chat lines shown with one clip
 LOG_DEFAULT = 20          # log lines when the model does not say
-LOG_SCAN = 4              # read this many times the asked-for lines, then filter
+LOG_BYTES = 200_000       # read this much of the end of the log, then filter
 
 
 @dataclass
@@ -30,7 +31,7 @@ class Tool:
     description: str
     schema: dict                      # JSON schema for the arguments
     run: Callable[..., Awaitable[Any]]
-    writes: bool = False              # changes something, so it needs permission
+    writes: bool = False              # changes something, so it may need permission
 
     def spec(self) -> dict:
         """The shape Ollama's tool calling expects."""
@@ -38,141 +39,113 @@ class Tool:
             "name": self.name, "description": self.description, "parameters": self.schema}}
 
 
-def _no_args() -> dict:
+def no_args() -> dict:
     return {"type": "object", "properties": {}}
 
 
+def obj(**props: dict) -> dict:
+    """A JSON schema object; a property whose schema has ``required: True`` is required."""
+    required = [k for k, v in props.items() if v.pop("required", False)]
+    out = {"type": "object", "properties": props}
+    if required:
+        out["required"] = required
+    return out
+
+
 def build(ctx) -> dict[str, Tool]:
-    """Wire the tools to the running app. ``ctx`` is the ClipBotApp."""
+    """Wire the tools to the running app. ``ctx`` is the app: pipeline, settings, paths."""
     pipeline = ctx.pipeline
 
     async def status() -> dict:
         snap = await pipeline.snapshot()
-        backlog = snap.get("backlog") or {}
-        return {
-            "status": snap.get("status"),
-            "paused": snap.get("manual_paused"),
-            "watching": (snap.get("counts") or {}).get("watching"),
-            "clips": (snap.get("counts") or {}).get("clips"),
-            "posted": (snap.get("counts") or {}).get("posted"),
-            "rejected": (snap.get("counts") or {}).get("rejected"),
-            "queue": backlog.get("in_flight"),
-            "queue_pressure": round(backlog.get("pressure") or 0, 2),
-            "catching_up": backlog.get("failsafe"),
-            "trouble": snap.get("trouble") or [],
-            "gpu": snap.get("gpu"),
-        }
+        return {k: snap.get(k) for k in ("status", "manual_paused", "failsafe", "stages",
+                                         "backlog", "gpu", "version") if k in snap}
 
     async def streams() -> list[dict]:
         snap = await pipeline.snapshot()
-        return [{"name": s.get("name"), "platform": s.get("key", "").split(":")[0],
-                 "category": s.get("category"), "viewers": s.get("viewers"),
-                 "chat_per_second": s.get("rate"), "chat_z": s.get("z")}
-                for s in (snap.get("streams") or [])]
+        return [{"name": m.get("display_name"), "platform": m.get("platform"),
+                 "category": m.get("category"), "viewers": m.get("viewers"),
+                 "chat": m.get("chat")} for m in (snap.get("monitors") or [])]
 
     async def recent_clips(limit: int = CLIPS_DEFAULT, stage: str = "") -> list[dict]:
-        import asyncio
         rows = await asyncio.to_thread(pipeline.store.recent_candidates, CLIPS_MAX)
         out = []
-        for c in rows:
-            verdict = c.verdict or {}
-            if stage and c.stage != stage:
+        for d in rows:
+            if stage and d.get("stage") != stage:
                 continue
-            out.append({
-                "id": c.id,
-                "streamer": c.event.target.display_name,
-                "stage": str(c.stage),
-                "score": verdict.get("score"),
-                "title": verdict.get("title"),
-                "why": verdict.get("reason") or c.error,
-                "created": c.created_at,
-            })
-            if len(out) >= max(1, min(limit, CLIPS_MAX)):
+            target = (d.get("event") or {}).get("target") or {}
+            verdict = d.get("verdict") or {}
+            out.append({"id": d.get("id"), "streamer": target.get("display_name"),
+                        "stage": d.get("stage"), "score": verdict.get("score"),
+                        "title": verdict.get("title"),
+                        "why": verdict.get("reason") or d.get("error")})
+            if len(out) >= max(1, min(int(limit), CLIPS_MAX)):
                 break
         return out
 
     async def clip_detail(clip_id: str) -> dict:
-        import asyncio
-        c = await asyncio.to_thread(pipeline.store.candidate, clip_id)
+        c = await asyncio.to_thread(pipeline.store.get_candidate, clip_id)
         if c is None:
             return {"error": f"no clip with id {clip_id}"}
         verdict = c.verdict or {}
-        return {
-            "id": c.id, "streamer": c.event.target.display_name,
-            "category": c.event.target.category, "stage": str(c.stage),
-            "score": verdict.get("score"), "title": verdict.get("title"),
-            "caption": verdict.get("caption"), "hashtags": verdict.get("hashtags"),
-            "why": verdict.get("reason") or c.error,
-            "transcript": (c.transcript or "")[:TEXT_MAX],
-            "what_was_on_screen": (c.visual or "")[:TEXT_MAX],
-            "chat_at_the_time": (c.event.chat_sample or [])[:CHAT_SAMPLE_MAX],
-        }
+        return {"id": c.id, "streamer": c.event.target.display_name,
+                "category": c.event.target.category, "stage": str(c.stage),
+                "score": verdict.get("score"), "title": verdict.get("title"),
+                "why": verdict.get("reason") or c.error, "posts": c.post_copy,
+                "transcript": (c.transcript or "")[:TEXT_MAX],
+                "what_was_on_screen": (c.visual or "")[:TEXT_MAX],
+                "chat_at_the_time": (c.event.chat_sample or [])[:CHAT_SAMPLE_MAX]}
 
     async def read_log(lines: int = LOG_DEFAULT, containing: str = "") -> list[str]:
         from .. import syslog
-        entries = syslog.parse(syslog.tail_lines(ctx.paths.logs / "clipbot.log", LOG_MAX * LOG_SCAN))
-        rows = [f"{e['t']} {e['level']} {e['src']}: {e['msg']}" for e in entries]
+        raw = await asyncio.to_thread(syslog.tail_lines, ctx.paths.logs / "clipbot.log", LOG_BYTES)
+        rows = [f"{e['t']} {e['level']} {e['src']}: {e['msg']}" for e in syslog.parse(raw)]
         if containing:
             rows = [r for r in rows if containing.lower() in r.lower()]
-        return rows[-max(1, min(lines, LOG_MAX)):]
+        return rows[-max(1, min(int(lines), LOG_MAX)):]
 
     async def disk_report() -> dict:
-        from ..media import storage_report
-        return await storage_report(ctx.settings, ctx.paths)
+        from ..media import ollama_models_dir, storage_report
+        return await asyncio.to_thread(storage_report, ctx.paths, ollama_models_dir())
 
     async def settings_read(section: str) -> dict:
         from ..config import masked_dump
-        data = masked_dump(ctx.settings)
-        return data.get(section, {"error": f"no settings section called {section}"})
+        return masked_dump(ctx.settings).get(section, {"error": f"no section called {section}"})
 
-    async def pause(reason: str = "") -> dict:
-        await pipeline.set_manual_paused(True)
-        logger.info("assistant paused capture%s", f": {reason}" if reason else "")
+    async def pause() -> dict:
+        await pipeline.pause()
         return {"paused": True}
 
     async def resume() -> dict:
-        await pipeline.set_manual_paused(False)
-        logger.info("assistant resumed capture")
+        await pipeline.resume()
         return {"paused": False}
 
-    async def publish(clip_id: str) -> dict:
-        import asyncio
-        c = await asyncio.to_thread(pipeline.store.candidate, clip_id)
-        if c is None:
-            return {"error": f"no clip with id {clip_id}"}
-        await pipeline.publish_now(c)
-        logger.info("assistant published %s", clip_id)
-        return {"publishing": clip_id, "title": (c.verdict or {}).get("title")}
+    async def publish_clip(clip_id: str) -> dict:
+        from ..publishers import PLATFORMS
+        return await pipeline.publish_now(clip_id, list(PLATFORMS))
+
 
     tools = [
         Tool("status", "How BURN-IN is doing right now: running or paused, queue, trouble, GPU.",
-             _no_args(), status),
+             no_args(), status),
         Tool("streams", "The streams being watched, with viewers and how fast chat is moving.",
-             _no_args(), streams),
-        Tool("recent_clips", "The most recent clips with their stage, score and title.",
-             {"type": "object", "properties": {
-                 "limit": {"type": "integer", "description": "how many, up to 25"},
-                 "stage": {"type": "string",
-                           "description": "only this stage: scheduled, posted, rejected"}}},
+             no_args(), streams),
+        Tool("recent_clips", "The newest clips with their stage, score and title.",
+             obj(limit={"type": "integer", "description": "how many, up to 25"},
+                 stage={"type": "string", "description": "only this stage, e.g. scheduled"}),
              recent_clips),
-        Tool("clip_detail", "Everything known about one clip: copy, transcript, what was on "
-             "screen, and why the judge decided what it did.",
-             {"type": "object", "properties": {"clip_id": {"type": "string"}},
-              "required": ["clip_id"]}, clip_detail),
+        Tool("clip_detail", "Everything about one clip: its posts, transcript, what was on screen "
+             "and why it was judged the way it was.",
+             obj(clip_id={"type": "string", "required": True}), clip_detail),
         Tool("read_log", "Recent log lines, optionally only those containing some text.",
-             {"type": "object", "properties": {
-                 "lines": {"type": "integer"},
-                 "containing": {"type": "string"}}}, read_log),
+             obj(lines={"type": "integer"}, containing={"type": "string"}), read_log),
         Tool("disk_report", "Space used by clips, buffers and work files, and what is free.",
-             _no_args(), disk_report),
-        Tool("settings_read", "Read one section of the settings, with secrets masked.",
-             {"type": "object", "properties": {"section": {"type": "string"}},
-              "required": ["section"]}, settings_read),
-        Tool("pause", "Stop capturing for now.",
-             {"type": "object", "properties": {"reason": {"type": "string"}}}, pause, writes=True),
-        Tool("resume", "Start capturing again.", _no_args(), resume, writes=True),
-        Tool("publish_clip", "Post a clip that is ready, skipping the schedule.",
-             {"type": "object", "properties": {"clip_id": {"type": "string"}},
-              "required": ["clip_id"]}, publish, writes=True),
+             no_args(), disk_report),
+        Tool("settings_read", "Read one section of the settings, with secrets hidden.",
+             obj(section={"type": "string", "required": True}), settings_read),
+        Tool("pause", "Stop capturing streams for now.", no_args(), pause, writes=True),
+        Tool("resume", "Start capturing streams again.", no_args(), resume, writes=True),
+        Tool("publish_clip", "Post a finished clip everywhere right now, skipping the schedule.",
+             obj(clip_id={"type": "string", "required": True}), publish_clip, writes=True),
     ]
     return {t.name: t for t in tools}

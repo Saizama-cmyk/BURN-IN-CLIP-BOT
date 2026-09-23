@@ -30,7 +30,7 @@ REVIEWED_CONSTANTS = {
     "chat.py": {"TWITCH_NICK_DIGITS"},
     "agent/skills.py": {"NAME_MAX", "DESC_MAX"},                        # file-name and field caps
     "agent/tools.py": {"CLIPS_MAX", "LOG_MAX", "TEXT_MAX", "CLIPS_DEFAULT",
-                       "CHAT_SAMPLE_MAX", "LOG_DEFAULT", "LOG_SCAN"},             # how much is shown at once
+                       "CHAT_SAMPLE_MAX", "LOG_DEFAULT", "LOG_BYTES"},             # how much is shown at once
     "agent/mcpclient.py": {"PROTOCOL", "START_TIMEOUT_S", "CALL_TIMEOUT_S", "LINE_MAX",
                            "SUMMARY_MAX", "STOP_GRACE_S", "DESC_MAX"},
     "sweeper.py": {"GB", "HOUR_S"},                                     # unit conversions
