@@ -71,3 +71,25 @@ def test_cancellation_is_not_swallowed(pipeline):
             asyncio.run(pipeline._run_candidate(c))
     finally:
         mod.assemble = original
+
+
+def test_restart_does_not_resume_clips_past_their_moment(pipeline):
+    """73 hours-old clips resumed at once flooded the queue and starved capture on start."""
+    import time
+    from pathlib import Path
+    old, fresh = _candidate(), _candidate()
+    fresh.event = SpikeEvent(target=old.event.target, t_wall=2.0, kind="chat", score=1.0,
+                             chat_rate=1, baseline=1)
+    fresh.id = fresh.event.id
+    old.created_at = time.time() - 6 * 3600
+    for c in (old, fresh):
+        c.stage = Stage.QC
+        c.raw_path = str(Path(pipeline.paths.work) / f"{c.id}.mp4")
+        Path(c.raw_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(c.raw_path).write_bytes(b"x")
+        pipeline.store.upsert_candidate(c)
+    launched = []
+    pipeline._launch = lambda c: launched.append(c.id)
+    asyncio.run(pipeline._recover())
+    assert launched == [fresh.id]
+    assert pipeline.store.get_candidate(old.id).stage is Stage.FAILED

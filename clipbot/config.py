@@ -385,7 +385,7 @@ class ClipCfg(Section):
     qc_min_duration_ratio: float = F(0.8, "QC min duration ratio",
                                      "Cut must be at least this share of the requested length.", ge=0.1, le=1)
     qc_black_min_s: float = F(0.5, "QC black run (s)", "Shortest black run blackdetect counts.", ge=0.05, le=10)
-    abandon_after_h: float = F(1.0, "Give up on unfinished cuts after (h)", "A cut that never "
+    abandon_after_h: float = F(0.25, "Give up on unfinished cuts after (h)", "A cut that never "
                                "made it through the AI is written off once it is this old: the "
                                "buffered video it came from is long gone, so it can never finish, "
                                "and leaving it in the queue is what keeps the failsafe on.",
@@ -1368,6 +1368,7 @@ STORAGE_UPGRADES = {         # setting -> the old default it replaces
     "clip.keep_rejected_hours": 24.0,
     "posting.cleanup_interval_s": 3600.0,
     "edit.keep_raw": True,
+    "clip.abandon_after_h": 1.0,
 }
 
 

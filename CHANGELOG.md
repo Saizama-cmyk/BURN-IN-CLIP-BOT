@@ -8,6 +8,16 @@ Dates are the day the release was tagged.
 
 ## Desktop
 
+### 1.0.4 — 2026-09-23
+
+**Fixed**
+
+- The app crawled for the first few minutes after starting. It resumed every clip left unfinished
+  by the last session, however old - 73 at once on this PC, close to an hour of model time on
+  moments long past their moment. The queue flooded, every capture stalled while it all started,
+  and the window felt frozen. Clips older than 15 minutes are now written off before they are
+  queued, so a restart picks up where it left off and nothing more.
+
 ### 1.0.3 — 2026-09-23
 
 **Fixed**

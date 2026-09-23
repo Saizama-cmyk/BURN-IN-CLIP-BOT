@@ -679,8 +679,19 @@ class Pipeline:
         return box
 
     async def _recover(self) -> None:
-        """Resume candidates interrupted by the last shutdown."""
+        """Resume candidates interrupted by the last shutdown - only the ones still worth it.
+
+        Everything unfinished used to be resumed, however old. After a long break that was 73
+        clips at once: close to an hour of model time spent on moments hours past their moment,
+        a queue deep enough to trip the failsafe, and captures starving while it all started.
+        A clip older than ``clip.abandon_after_h`` is written off here, before it is queued."""
+        cutoff = time.time() - self.settings.clip.abandon_after_h * 3600
         for c in await asyncio.to_thread(self.store.active_candidates):
+            if c.created_at < cutoff:
+                c.error = "given up: too old to be worth finishing after a restart"
+                await self._save(c, Stage.FAILED)
+                await self._clear_work(c)
+                continue
             if c.raw_path and Path(c.raw_path).exists():
                 logger.info("resuming candidate %s from %s", c.id, c.stage)
                 self._launch(c)
