@@ -117,13 +117,31 @@ def clip_brief(c: Candidate, insights: str, chat_lines: int) -> str:
     nl = "\n"
     return (f"Streamer: {t.display_name} ({platform})\nCategory: {t.category or 'unknown'}\n"
             f"Stream title: {t.title or '(none)'}\n"
-            f"Reviewer's title: {v.get('title', '')}\nWhy it's good: {v.get('reason', '')}\n"
+            f"Reviewer's note (internal - never reuse its wording): {v.get('reason', '')}\n"
             f"The spike: {ev.kind} at {spike_at:.1f}s into the cut (chat z {ev.chat_z:.1f}"
             f"{', keywords: ' + ', '.join(ev.keywords_hit) if ev.keywords_hit else ''}).\n\n"
-            f"Chat's reaction:\n{nl.join('- ' + m for m in chat) or '(no chat captured)'}\n\n"
+            f"Chat's reaction (only to help you understand the moment - the viewer never sees chat, "
+            f"so never mention it):\n{nl.join('- ' + m for m in chat) or '(no chat captured)'}\n\n"
             f"Transcript:\n{c.transcript.strip() or '(no speech)'}\n\n"
             f"On screen:\n{c.visual.strip() or '(no visual description)'}\n\n"
             f"What has worked on this channel:\n{insights.strip() or '(not enough data yet)'}\n")
+
+
+def narrates(copy: dict, patterns: list[str]) -> str:
+    """The first phrase in the titles/captions that describes the clip instead of hooking, or ''."""
+    texts = [copy.get("hook", ""), (copy.get("youtube") or {}).get("title", ""),
+             (copy.get("tiktok") or {}).get("caption", ""), (copy.get("instagram") or {}).get("caption", "")]
+    for pattern in patterns:
+        try:
+            rx = re.compile(pattern, re.IGNORECASE)
+        except re.error as exc:
+            logger.warning("describing phrase %r is not a valid pattern: %s", pattern, exc)
+            continue
+        for text in texts:
+            m = rx.search(text or "")
+            if m:
+                return m.group(0)
+    return ""
 
 
 class Copywriter:
@@ -187,6 +205,20 @@ class Copywriter:
             return []
         return [base64.b64encode(f).decode("ascii") for f in frames]
 
+    async def _rewrite(self, messages: list[dict], raw: str, phrase: str, first: dict) -> dict:
+        """Send narrating copy back once; keep the rewrite if it parses, else the first version."""
+        s = self.settings
+        retry = messages + [{"role": "assistant", "content": raw},
+                            {"role": "user", "content": s.copywriter.rewrite_prompt.replace("{phrase}", phrase)}]
+        try:
+            again = Filter(s).clean(normalize_copy(_extract_json(await self._chat(retry)), s))
+        except (BadModelOutput, json.JSONDecodeError, httpx.HTTPError) as exc:
+            logger.info("copy rewrite failed (%s); keeping the first version", exc)
+            return first
+        still = narrates(again, s.copywriter.narration)
+        logger.info("copy rewritten (was %r)%s", phrase, f"; still describes: {still!r}" if still else "")
+        return again
+
     async def write(self, c: Candidate, insights: str = "", video: Path | None = None) -> dict:
         """Per-platform copy for a passed clip, or {} (fallback to templates) on failure."""
         s = self.settings
@@ -202,7 +234,11 @@ class Copywriter:
             try:
                 for attempt in range(s.ai.retries + 1):
                     try:
-                        result = Filter(s).clean(normalize_copy(_extract_json(await self._chat(messages)), s))
+                        raw = await self._chat(messages)
+                        result = Filter(s).clean(normalize_copy(_extract_json(raw), s))
+                        phrase = narrates(result, s.copywriter.narration)
+                        if phrase:
+                            result = await self._rewrite(messages, raw, phrase, result)
                         self.last_error = ""
                         return result
                     except (BadModelOutput, json.JSONDecodeError) as exc:

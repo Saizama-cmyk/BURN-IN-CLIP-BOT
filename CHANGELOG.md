@@ -13,6 +13,19 @@ Dates are the day the release was tagged.
 **New name: Ashvane.** Same app, same settings, same clips. The old name was hard to search,
 clashed with a clothing trademark and said nothing good about the product.
 
+**Better clips, fewer of them**
+
+- The judge now scores the way a stranger scrolling past would, and the pass mark is 7 instead of
+  6. It rejects moments where chat is the only story, low-stakes moments (a small in-game reward, a
+  mispronounced word) and inside jokes. On the last 14 real moments it kept 3 instead of 10.
+- Cuts open 1-2 seconds before the payoff and aim for 15-35 seconds: viewers decide in the first
+  3 seconds whether to swipe.
+- Titles are written to make people stop scrolling, not to describe the clip. The writer no longer
+  copies the judge's plain description, never talks about chat (viewers of a Short can't see it)
+  and is sent back once to rewrite when it writes "reacts to", "rants about" or "chat goes wild".
+- The title box over the top of finished clips is off by default. Turn it back on per clip in
+  Studio.
+- Your saved prompts and settings upgrade by themselves unless you edited them.
 **Window and pet**
 
 - The desktop pet no longer covers the screen with a grey sheet. The WebView2 update from

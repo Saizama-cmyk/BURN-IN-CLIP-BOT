@@ -531,19 +531,31 @@ verdict "reject".
 verdict "reject".
 - "dead_air": silence, menus, AFK, loading screens, or unintelligible audio. verdict "reject".
 
-Score 0-10 for how well it would do as a Short. Calibrate: 8+ is a clip you would send a friend; \
-6-7 is solidly postable; 5 is watchable filler; below 4 is a waste of a post. A channel needs \
-volume, so pass anything genuinely entertaining - but never pass something you cannot describe \
-in one sentence.
+Score 0-10 for how well it would do as a Short, judged by a STRANGER who has never heard of this \
+streamer and sees it between two other videos. Calibrate: 9-10 people share it; 7-8 a stranger \
+watches to the end and would send it to a friend; 5-6 is mildly amusing if you already watch this \
+streamer - that is NOT enough; below 5 is a waste of a post. Most moments a hype detector finds \
+are a 5 or 6, so expect to reject most of them. One great clip beats ten average ones: weak posts \
+teach the platforms to stop showing the channel.
 
-THE CUT. Pick trim_start/trim_end (seconds on the transcript clock) so that: the clip opens as \
-late as possible while still setting up the payoff (usually 1-3 seconds of setup, no more), the \
-payoff lands inside the first half, and it ends right after the reaction - no trailing dead air, \
-no "anyway, so..." tail. Also give "peak_at": the exact second the best beat happens, which is \
+Always reject, whatever chat did:
+- chat reacting is the whole story (chat going wild, emote spam, a donation, sub or raid alert, a \
+poll) - the viewer of a Short never sees chat.
+- low stakes: a small in-game reward, a routine kill or win, a mispronounced word, an ordinary \
+chat or conversation.
+- it needs the stream's context or an inside joke to land.
+- nothing clear happens in the first 3 seconds of your cut.
+
+THE CUT. Pick trim_start/trim_end (seconds on the transcript clock) so that: the clip opens at \
+most 1-2 seconds before the payoff starts building - Shorts viewers decide in the first 3 seconds \
+whether to swipe, so never open on setup, menus or small talk; the payoff lands inside the first \
+half; it ends right after the reaction - no trailing dead air, no "anyway, so..." tail. Aim for \
+15-35 seconds; go longer only when the story needs it. Also give "peak_at": the exact second the best beat happens, which is \
 where the edit punches in.
 
-Write a punchy title (max {title_max} chars, no hashtags, no clickbait lies), a caption \
-(max {caption_max} chars) and {hashtags_min}-{hashtags_max} relevant hashtags without the # sign.
+Write a plain working title (max {title_max} chars) that says what happens - it is only a label \
+for the review queue, the post copy is written separately - plus a caption (max {caption_max} \
+chars) and {hashtags_min}-{hashtags_max} relevant hashtags without the # sign.
 
 Reply with ONLY this JSON object:
 {"verdict": "pass"|"reject", "category": "moment"|"chat_only"|"keyword_false"|"dead_air", \
@@ -573,7 +585,7 @@ class AICfg(Section):
     ollama_url: str = F("http://127.0.0.1:11434", "Ollama URL", "Where Ollama listens.")
     model: str = F("qwen3-coder:30b", "Model", "Pick from the models installed in Ollama.", widget="ollama_models")
     temperature: float = F(0.2, "Temperature", "Lower = more consistent verdicts.", ge=0, le=2)
-    min_score: int = F(6, "Minimum score", "Clips scoring below this are rejected even if the model says pass.",
+    min_score: int = F(7, "Minimum score", "Clips scoring below this are rejected even if the model says pass.",
                        ge=0, le=10)
     timeout_s: int = F(180, "Timeout (s)", "Give up on one model call after this long.", ge=10, le=1800)
     first_try_timeout_s: int = F(70, "First try timeout (s)", "A healthy call answers well inside "
@@ -698,6 +710,8 @@ Bad (describes the video)          ->  Good (makes you watch)
 "Kai Cenat laughs at chat message" ->  "Chat ended Kai with one message"
 "Pokimane talks about her day"     ->  "\"I'm never doing that again\""
 
+Never write these - they describe instead of hook: "reacts to", "rants about", "laughs at", "talks about", "a funny moment", and anything about chat ("chat goes wild", "chat loses it"): the person watching the Short never sees chat. If someone says a line that lands, quote it. The examples above only show the style: never reuse their words, and never claim anything the transcript and frames do not show. Hashtags: the streamer, the game or category, and one or two the audience actually searches - never filler like #streamer #funny #video.
+
 First decide the vibe (hype, funny, rage, wholesome, clutch, awkward, chaos) and write in that voice. Sound like a clipper who watches this streamer every day, not a brand account. Credit the streamer by name in every description. Never put timestamps, "spike", scores or any tool jargon in the copy. Never use slurs or hateful terms, even if someone in the clip says them.
 
 For every platform also write "comment": the first comment the channel posts under the clip - a hot take or a question people will argue about, never "like and subscribe".
@@ -707,6 +721,14 @@ Platform rules:
 
 Reply with ONLY this JSON object:
 {"vibe": "one word", "hook": "on-screen hook, under 6 words", "youtube": {"title": "...", "description": "...", "tags": ["..."], "comment": "..."}, "tiktok": {"caption": "...", "hashtags": ["..."], "comment": "..."}, "instagram": {"caption": "...", "hashtags": ["..."], "comment": "..."}, "facebook": {"title": "...", "description": "...", "comment": "..."}, "discord": {"message": "..."}}"""
+
+DEFAULT_NARRATION = [
+    r"\breacts? to\b", r"\brants? about\b", r"\blaughs? (at|so)\b", r"\btalks? about\b",
+    r"\bfunny moment\b", r"\bchat (goes|went|gets|got|loses|lost)\b", r"\bchat (is )?going\b",
+]
+DEFAULT_REWRITE_PROMPT = ("That copy describes the clip (\"{phrase}\") instead of making someone stop "
+                          "scrolling. Rewrite ALL of it: lead with the stakes, the reaction or a real "
+                          "quote, never narrate what happens and never mention chat. Same JSON shape.")
 
 DEFAULT_PLATFORM_RULES = {
     "youtube": "Title under 40 characters: the hook, not a summary; streamer's name first when it "
@@ -750,6 +772,13 @@ class CopyCfg(Section):
                            widget="textarea")
     youtube_tags_max: int = F(10, "YouTube tags max", "Tags kept for YouTube.", ge=0, le=30)
     hashtags_max: int = F(8, "Hashtags max (TikTok/Instagram)", "Hashtags kept per caption.", ge=0, le=30)
+    narration: list[str] = F(default_factory=lambda: list(DEFAULT_NARRATION), title="Describing phrases",
+                             description="Regular expressions for titles that narrate the clip instead of "
+                             "hooking the viewer. A title or caption that matches is sent back once to "
+                             "be rewritten.")
+    rewrite_prompt: str = F(DEFAULT_REWRITE_PROMPT, "Rewrite request",
+                            "Sent when a title describes the clip. {phrase} is the part that gave it away.",
+                            widget="textarea")
 
 
 class AnalyticsCfg(Section):
@@ -896,7 +925,7 @@ class EditCfg(Section):
     scale_flags: Literal["lanczos", "bicubic", "bilinear"] = F(
         "lanczos", "Scaling filter", "How frames are resized (lanczos = sharpest).")
     sharpen: float = F(0.35, "Sharpen", "Mild unsharp mask after scaling (0 = off).", ge=0, le=2)
-    hook_text: bool = F(True, "Hook text", "Show the copywriter's hook line at the start of the clip.")
+    hook_text: bool = F(False, "Hook text", "Show the copywriter's hook line at the start of the clip.")
     hook_seconds: float = F(2.8, "Hook duration (s)", "How long the hook stays on screen.", ge=0.5, le=10)
     hook_font_size: int = F(64, "Hook size", "Hook text size at 1080x1920.", ge=10, le=200)
     hook_y_pct: float = F(13.0, "Hook position (%)", "Hook box position, % down the frame.", ge=2, le=90)
@@ -1442,7 +1471,8 @@ def atomic_write(path: Path, text: str) -> None:
 # install. Each entry is the sha256 of a prompt we shipped before; a stored prompt that still
 # matches one of them was never edited by hand, so it is safe to replace with the current text.
 PROMPT_FIELDS = {
-    ("copywriter", "prompt"): (DEFAULT_COPY_PROMPT, {"8fe8d581111b56b7b226eaf8fd975eded1b1b4b4cfe007c208a8f2525e2012fb"}),
+    ("copywriter", "prompt"): (DEFAULT_COPY_PROMPT, {"8fe8d581111b56b7b226eaf8fd975eded1b1b4b4cfe007c208a8f2525e2012fb",
+                                                "a6d88276bf29f52dc900e929c974eadfe4855a26d4102c07d03d2f4a3dc4af7b"}),
     ("copywriter", "youtube_rules"): (DEFAULT_PLATFORM_RULES["youtube"], {"2a630334e07e636ec65597992f17070f5f0fc107bb2ba35bff7e947b45163de5"}),
     ("copywriter", "tiktok_rules"): (DEFAULT_PLATFORM_RULES["tiktok"], {"da6e0eeb08738b4f6c91aeb6704cfdcb9e4ce872a962f255652f4f9e5ce76823"}),
     ("copywriter", "instagram_rules"): (DEFAULT_PLATFORM_RULES["instagram"], {"3a98f4a45914c34e129c89249bc95066b2ace08d31d8f91f60bc75a971a53e46"}),
@@ -1450,6 +1480,7 @@ PROMPT_FIELDS = {
     ("copywriter", "discord_rules"): (DEFAULT_PLATFORM_RULES["discord"], {"ebb61365cbb33c522337be1e7f493a98743e06f25d105bb401ff8495f83274df"}),
     ("ai", "system_prompt"): (DEFAULT_SYSTEM_PROMPT, {
         "b064e5f6f207c8044b5b5c73298586fb9bdf375bec543fd31723ef31e28d38bb",
+        "4f8fa0431deefc146181fc4d96596248913487fa1b933b9914c2b162ae66312d",
     }),
 }
 
@@ -1479,7 +1510,9 @@ STORAGE_UPGRADES = {         # setting -> the old default it replaces
     "clip.abandon_after_h": 1.0,
     "updates.installer_asset": "BURN-IN-Setup.exe",       # the app's old name
     "posting.discord.username": "BURN-IN Clips",
-    "viewer.live_max_lag_s": 12.0,      # too close to two segments: it kept skipping
+    "viewer.live_max_lag_s": 12.0,
+    "ai.min_score": 6,
+    "edit.hook_text": True,      # too close to two segments: it kept skipping
     # the "thinking" build writes a long hidden essay before every verdict; on one GPU that is
     # the difference between a few seconds and a 70 s timeout per clip
     "ai.vision_model": "qwen3-vl:8b",
