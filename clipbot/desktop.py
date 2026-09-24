@@ -182,6 +182,7 @@ class PetInput(threading.Thread):
         self._at = (-1, -1)
         self._synced = 0.0
         self._card_down = False
+        self._healed = 0.0
 
     def run(self) -> None:
         if os.name != "nt":
@@ -192,6 +193,10 @@ class PetInput(threading.Thread):
             if self.desktop.pet is None or not self.desktop.pet_visible:
                 continue
             try:
+                now = time.monotonic()
+                if now - self._healed >= self.desktop.app.settings.pets.heal_s:
+                    self._healed = now
+                    self.desktop.pet_heal()
                 u32.GetCursorPos(ctypes.byref(pt))
                 if self.rect:
                     self._tick(pt.x, pt.y, bool(u32.GetAsyncKeyState(VK_LBUTTON) & KEY_DOWN))
@@ -401,6 +406,7 @@ class Desktop:
         self.pet_visible = False
         self._pet_input: PetInput | None = None
         self._pet_lock = threading.Lock()
+        self._pet_reset_seen = ""
         self.icon = None
         self.quitting = False
         self._engine: threading.Thread | None = None
@@ -452,17 +458,45 @@ class Desktop:
         """Tool-window style, colour-key transparency, and our own mouse tracking."""
         hwnd = self.pet_hwnd()
         if hwnd:
-            u32 = ctypes.windll.user32
-            ex = u32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            u32.SetWindowLongW(hwnd, GWL_EXSTYLE,
-                               (ex | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TRANSPARENT)
-                               & ~WS_EX_APPWINDOW)
-            no_backdrop(hwnd)
+            self._pet_style(hwnd)
         self._pet_backcolor()
         self.pet_keyed(True)
         if self._pet_input is None:
             self._pet_input = PetInput(self)
             self._pet_input.start()
+
+    def _pet_style(self, hwnd: int) -> None:
+        u32 = ctypes.windll.user32
+        ex = u32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        u32.SetWindowLongW(hwnd, GWL_EXSTYLE,
+                           (ex | WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TRANSPARENT)
+                           & ~WS_EX_APPWINDOW)
+        no_backdrop(hwnd)
+
+    def pet_heal(self) -> None:
+        """Put the see-through, click-through overlay back if it was lost mid-session (Windows
+        re-applying its backdrop, or the window being rebuilt without our styles). Without this a
+        reset leaves a full-screen sheet over the desktop until Ashvane restarts."""
+        hwnd = self.pet_hwnd()
+        if not hwnd:
+            return
+        u32 = ctypes.windll.user32
+        ex = u32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        key, alpha, flags = ctypes.c_uint(), ctypes.c_ubyte(), ctypes.c_uint()
+        u32.GetLayeredWindowAttributes(hwnd, ctypes.byref(key), ctypes.byref(alpha), ctypes.byref(flags))
+        backdrop = ctypes.c_int()
+        hr = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+            hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ctypes.byref(backdrop), ctypes.sizeof(backdrop))
+        styled = bool(ex & WS_EX_LAYERED and ex & WS_EX_TRANSPARENT and flags.value & LWA_COLORKEY)
+        backdrop_ok = hr != 0 or backdrop.value == DWMSBT_NONE     # hr: older Windows, no backdrop
+        if styled and backdrop_ok:
+            return
+        state = f"ex={ex:#x} layered-flags={flags.value} backdrop={backdrop.value}"
+        if state != self._pet_reset_seen:          # say it once per kind of reset, not every second
+            self._pet_reset_seen = state
+            logger.warning("pet overlay was reset (%s); repairing it", state)
+        self._pet_style(hwnd)
+        self.pet_keyed(True)
 
     def pet_hwnd(self) -> int | None:
         try:

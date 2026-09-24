@@ -1260,6 +1260,9 @@ class PetsCfg(Section):
                           "mid-screen.", ge=200, le=8000)
     input_poll_ms: int = F(16, "Mouse polling (ms)", "How often the pet checks where your mouse is. "
                            "Lower = snappier dragging, slightly more CPU.", ge=8, le=100)
+    heal_s: float = F(1.0, "Overlay check (s)", "How often the pet makes sure its window is still "
+                      "see-through and click-through, and repairs it if Windows reset it.",
+                      ge=0.25, le=10.0)
     hover_ms: int = F(400, "Hover delay (ms)", "How long to rest the mouse on the pet before its "
                       "card opens.", ge=0, le=3000)
     leave_ms: int = F(250, "Close delay (ms)", "How long after the mouse leaves before the card "
