@@ -23,8 +23,10 @@ OUT = ROOT / "docs" / "sideload.json"
 ALIAS = ROOT / "docs" / "altstore.json"   # same feed, the name older tools expect
 BUNDLE_ID = "app.ashvane.mobile"
 # full-size and opaque: sideloaders show this large, and iOS turns transparency black
-ICON = "https://raw.githubusercontent.com/{repo}/main/phone/assets/icon-ios.png"
-SCREENSHOT = "https://raw.githubusercontent.com/{repo}/main/docs/listing/screen-{n}.png"
+# ?v= makes every release a new address: AltStore and iOS keep images by URL, so without it an
+# updated icon or screenshot never replaces the one a phone already cached
+ICON = "https://raw.githubusercontent.com/{repo}/main/phone/assets/icon-ios.png?v={version}"
+SCREENSHOT = "https://raw.githubusercontent.com/{repo}/main/docs/listing/screen-{n}.png?v={version}"
 SCREENSHOTS = 4                            # docs/listing/screen-1..4.png, from make_assets.py
 TINT = "F06834"                            # the ember of the mark
 DESCRIPTION = (
@@ -65,7 +67,7 @@ def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
         "name": PRODUCT,
         "identifier": "app.ashvane",
         "subtitle": "Your clip desk and a private AI, in your pocket.",
-        "iconURL": ICON.format(repo=repo),
+        "iconURL": ICON.format(repo=repo, version=version),
         "website": f"https://github.com/{repo}",
         "tintColor": TINT,
         "apps": [{
@@ -74,10 +76,10 @@ def source(repo: str, tag: str, ipa_url: str, size: int) -> dict:
             "developerName": PRODUCT,
             "subtitle": "Your clip desk and a private AI, in your pocket.",
             "localizedDescription": DESCRIPTION,
-            "iconURL": ICON.format(repo=repo),
+            "iconURL": ICON.format(repo=repo, version=version),
             "tintColor": TINT,
             "category": "utilities",
-            "screenshotURLs": [SCREENSHOT.format(repo=repo, n=n)
+            "screenshotURLs": [SCREENSHOT.format(repo=repo, n=n, version=version)
                                for n in range(1, SCREENSHOTS + 1)],
             # The same release stated twice. Newer sideloaders read "versions"; older AltStore
             # builds read these flat fields and refuse the install with "version does not match"
